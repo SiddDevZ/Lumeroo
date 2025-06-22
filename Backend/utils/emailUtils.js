@@ -22,7 +22,7 @@ export const sendVerificationEmail = async (email, otp, context = 'verification'
   const isPasswordReset = context === 'password-reset';
   
   const mailOptions = {
-    from: 'noreply@lumeroo.siddz.com',
+    from: 'noreply@siddz.com',
     to: email,
     subject: isPasswordReset ? 'Reset Your Lumeroo Password' : 'Verify Your Lumeroo Account',
     text: `Your ${isPasswordReset ? 'password reset' : 'verification'} code is: ${otp}\nThis code will expire in 1 hour.`,
