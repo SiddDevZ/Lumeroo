@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import useUserAvatar from '../hooks/useUserAvatar';
 import { FaUserAlt } from 'react-icons/fa';
+import config from '../config'; // Adjust the import based on your project structure
 
 const formatCount = (count) => {
   if (count >= 1000000) {
@@ -25,11 +26,11 @@ const SubscriptionCard = ({ subscription }) => {
     >
       <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#272727] mb-3">
         {(subscription.avatar || avatarUrl) ? (
-          <Image 
-            src={subscription.avatar || avatarUrl} 
+          <Image
+            src={subscription.avatar ? (config.stream + subscription.avatar) : (avatarUrl || '')} 
             alt={subscription.username}
-            width={64}
-            height={64}
+            width={48}
+            height={48}
             className="object-cover w-full h-full"
           />
         ) : (

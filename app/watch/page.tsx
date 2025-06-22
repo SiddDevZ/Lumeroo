@@ -1794,10 +1794,11 @@ const WatchPageContent = () => {
                 onClick={handleUploaderClick}
               >
                 <Image
-                  src={video.uploader?.avatar || uploaderAvatarUrl || "/logo.webp"}
+                  src={video.uploader?.avatar ? (config.stream + video.uploader.avatar) : (uploaderAvatarUrl || "/logo.webp")}
                   alt={video.uploader?.username || "User"}
-                  fill
-                  className="object-cover opacity-[97%]"
+                  width={40}
+                  height={40}
+                  className="rounded-full object-cover opacity-[97%]"
                 />
               </div>
               <div className="cursor-pointer" onClick={handleUploaderClick}>
@@ -1885,10 +1886,11 @@ const WatchPageContent = () => {
               onClick={handleUploaderClick}
             >
               <Image
-                src={video.uploader?.avatar || uploaderAvatarUrl || "/logo.webp"}
+                src={video.uploader?.avatar ? (config.stream + video.uploader.avatar) : (uploaderAvatarUrl || "/logo.webp")}
                 alt={video.uploader?.username || "User"}
-                fill
-                className="object-cover opacity-[97%]"
+                width={40}
+                height={40}
+                className="rounded-full object-cover opacity-[97%]"
               />
             </div>
             <div className="flex-1 cursor-pointer" onClick={handleUploaderClick}>
@@ -2034,7 +2036,7 @@ const WatchPageContent = () => {
             <div className="mb-8 flex gap-3 px-1 lg:px-0">
               <div className="relative w-10 h-10 rounded-full flex-shrink-0 overflow-hidden bg-[#2a2a2a] ring-1 ring-[#3a3a3a]">
                 <Image
-                  src={user ? (user.avatar || userAvatarUrl || "/logo.webp") : "/logo.webp"}
+                  src={user ? (user.avatar ? (config.stream + user.avatar) : userAvatarUrl || "/logo.webp") : "/logo.webp"}
                   alt={user?.username || "User"}
                   fill
                   className="object-cover"
@@ -2141,7 +2143,7 @@ const WatchPageContent = () => {
                         onClick={() => handleCommentUserClick(comment.username)}
                       >
                         <Image
-                          src={comment.avatar || `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="${encodeURIComponent(comment.avatarColor || '#000000')}"/><text x="50" y="50" text-anchor="middle" dy="0.35em" font-family="Arial" font-size="40" fill="white">${comment.username?.[0]?.toUpperCase() || '?'}</text></svg>`}
+                          src={comment.avatar ? (config.stream + comment.avatar) : `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="${encodeURIComponent(comment.avatarColor || '#000000')}"/><text x="50" y="50" text-anchor="middle" dy="0.35em" font-family="Arial" font-size="40" fill="white">${comment.username?.[0]?.toUpperCase() || '?'}</text></svg>`}
                           alt={comment.username}
                           width={32}
                           height={32}
@@ -2285,7 +2287,7 @@ const WatchPageContent = () => {
                                   onClick={() => handleCommentUserClick(reply.username)}
                                 >
                                   <Image
-                                    src={reply.avatar || `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="${encodeURIComponent(reply.avatarColor || '#000000')}"/><text x="50" y="50" text-anchor="middle" dy="0.35em" font-family="Arial" font-size="40" fill="white">${reply.username?.[0]?.toUpperCase() || '?'}</text></svg>`}
+                                    src={reply.avatar ? (config.stream + reply.avatar) : `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="${encodeURIComponent(reply.avatarColor || '#000000')}"/><text x="50" y="50" text-anchor="middle" dy="0.35em" font-family="Arial" font-size="40" fill="white">${reply.username?.[0]?.toUpperCase() || '?'}</text></svg>`}
                                     alt={reply.username}
                                     width={24}
                                     height={24}

@@ -464,8 +464,8 @@ router.post('/:contentType/:contentId', postLimiter, async (c) => {
       user: user._id,
       content: sanitizedContent,
       likedBy: [],
-      dislikedBy: [],
-      replies: []
+      dislikedBy: []
+      // Remove replies: [] - Mongoose will initialize this automatically
     });
 
     await newComment.save();
@@ -480,8 +480,7 @@ router.post('/:contentType/:contentId', postLimiter, async (c) => {
       likeCount: 0,
       dislikeCount: 0,
       replyCount: 0,
-      createdAt: newComment.createdAt,
-      replies: []
+      createdAt: newComment.createdAt
     };
 
     return c.json({

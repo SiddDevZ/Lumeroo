@@ -166,8 +166,8 @@ const SearchContent = () => {
             <Image
               src={config.stream + result.thumbnail}
               alt={result.title}
-              width={400}
-              height={225}
+              width={320}
+              height={180}
               className="object-cover w-full h-full group-hover:scale-[1.02] transition-transform duration-300 ease-in-out"
             />
             <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/0 to-[#00000059] opacity-95"></div>
@@ -183,7 +183,7 @@ const SearchContent = () => {
             <div className="w-9 h-9 rounded-full overflow-hidden bg-[#1f1f1f] hover:opacity-80 transition-opacity">
               {result.uploader.avatar ? (
                 <Image
-                  src={result.uploader.avatar}
+                  src={config.stream + result.uploader.avatar}
                   alt={result.uploader.username}
                   width={36}
                   height={36}
