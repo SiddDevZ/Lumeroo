@@ -1,0 +1,333 @@
+import { Hono } from 'hono';
+import { spawn } from 'child_process';
+import { promises as fs } from 'fs';
+import path from 'path';
+import Video, { generateSlug, generateRandomSuffix } from '../models/Video.js';
+import User from '../models/User.js';
+import { config } from "dotenv";
+import jwt from 'jsonwebtoken';
+import sharp from 'sharp';
+
+config();
+
+const router = new Hono();
+const JWT_SECRET = process.env.JWT_SECRET;
+const STREAM_BASE_DIR = '/var/www/stream';
+
+const verifyTokenAndGetUserId = (token) => {
+  if (!token) {
+    return null;
+  }
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    return decoded.email;
+  } catch (error) {
+    console.error("Token verification failed:", error.message);
+    return null;
+  }
+};
+
+const generateUniqueSlug = async (title) => {
+  const baseSlug = generateSlug(title);
+  const randomSuffix = generateRandomSuffix();
+  let slug = `${baseSlug}-${randomSuffix}`;
+
+  let counter = 1;
+  while (await Video.findOne({ slug: slug })) {
+    slug = `${baseSlug}-${randomSuffix}${counter}`;
+    counter++;
+  }
+
+  return slug;
+};
+
+const ensureDirectoryExists = async (dirPath) => {
+  try {
+    await fs.access(dirPath);
+  } catch {
+    await fs.mkdir(dirPath, { recursive: true });
+  }
+};
+
+const runFFmpegCommand = (args) => {
+  return new Promise((resolve, reject) => {
+    const ffmpeg = spawn('ffmpeg', args);
+    let stderr = '';
+
+    ffmpeg.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    ffmpeg.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`FFmpeg failed with code ${code}: ${stderr}`));
+      }
+    });
+
+    ffmpeg.on('error', (error) => {
+      reject(new Error(`FFmpeg spawn error: ${error.message}`));
+    });
+  });
+};
+
+const cleanupFile = async (filePath) => {
+  try {
+    await fs.unlink(filePath);
+  } catch (error) {
+    console.warn(`Failed to cleanup file ${filePath}:`, error.message);
+  }
+};
+
+router.post('/', async (c) => {
+  let workDir = null;
+  let inputPath = null;
+  let thumbPngPath = null;
+
+  try {
+    if (!JWT_SECRET) {
+      console.error('Server configuration error: JWT_SECRET missing.');
+      return c.json({ success: false, message: 'Server configuration error.' }, 500);
+    }
+
+    const formData = await c.req.formData();
+    const token = formData.get('token');
+    const userEmail = verifyTokenAndGetUserId(token);
+
+    if (!userEmail) {
+      return c.json({ success: false, message: 'Invalid or missing token. Authentication required.' }, 401);
+    }
+
+    const user = await User.findOne({ email: userEmail });
+    if (!user) {
+      return c.json({ success: false, message: 'User not found.' }, 404);
+    }
+
+    const title = formData.get('title');
+    const description = formData.get('description');
+    const tagsString = formData.get('tags');
+    const videoFile = formData.get('videoFile');
+    const thumbnailFile = formData.get('thumbnailFile');
+    const clientDuration = formData.get('duration');
+
+    if (!(videoFile instanceof File) || videoFile.size === 0) {
+      return c.json({ success: false, message: 'Video file is required and must be a valid file.' }, 400);
+    }
+    if (!title || typeof title !== 'string' || title.trim() === '') {
+      return c.json({ success: false, message: 'Title is required.' }, 400);
+    }
+    if (!description || typeof description !== 'string' || description.trim() === '') {
+      return c.json({ success: false, message: 'Description is required.' }, 400);
+    }
+
+    const allowedTypes = ['video/mp4', 'video/webm', 'video/avi', 'video/mov', 'video/quicktime'];
+    if (!allowedTypes.includes(videoFile.type)) {
+      return c.json({ success: false, message: 'Only video files (MP4, WebM, AVI, MOV) are allowed.' }, 400);
+    }
+
+    const maxSize = 2 * 1024 * 1024 * 1024; // 2GB
+    if (videoFile.size > maxSize) {
+      return c.json({ success: false, message: 'Video file size must be less than 2GB.' }, 400);
+    }
+
+    if (thumbnailFile && thumbnailFile instanceof File && thumbnailFile.size > 0) {
+      const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      if (!allowedImageTypes.includes(thumbnailFile.type)) {
+        return c.json({ success: false, message: 'Thumbnail must be a valid image file (JPEG, PNG, WebP).' }, 400);
+      }
+      
+      const maxThumbnailSize = 30 * 1024 * 1024;
+      if (thumbnailFile.size > maxThumbnailSize) {
+        return c.json({ success: false, message: 'Thumbnail file size must be less than 30MB.' }, 400);
+      }
+    }
+
+    const slug = await generateUniqueSlug(title.trim());
+    workDir = path.join(STREAM_BASE_DIR, slug);
+    inputPath = path.join(workDir, 'input.mp4');
+    const hlsPath = path.join(workDir, 'video.m3u8');
+    thumbPngPath = path.join(workDir, 'thumb.png');
+    const thumbWebpPath = path.join(workDir, 'thumb.webp');
+
+    await ensureDirectoryExists(STREAM_BASE_DIR);
+    await ensureDirectoryExists(workDir);
+
+    console.log(`Saving video file for slug: ${slug}`);
+    const videoBuffer = await videoFile.arrayBuffer();
+    await fs.writeFile(inputPath, Buffer.from(videoBuffer));
+
+    console.log(`Converting video to HLS format: ${slug}`);
+    const hlsArgs = [
+      '-i', inputPath,
+      '-codec:', 'copy',
+      '-start_number', '0',
+      '-hls_time', '10',
+      '-hls_list_size', '0',
+      '-f', 'hls',
+      hlsPath
+    ];
+
+    await runFFmpegCommand(hlsArgs);
+
+    console.log(`Processing thumbnail: ${slug}`);
+    
+    if (thumbnailFile && thumbnailFile instanceof File && thumbnailFile.size > 0) {
+      console.log(`Using custom thumbnail for: ${slug}`);
+      const thumbnailBuffer = await thumbnailFile.arrayBuffer();
+      
+      // Save custom thumbnail directly and convert to WebP
+      await sharp(Buffer.from(thumbnailBuffer))
+        .webp({ quality: 80 })
+        .toFile(thumbWebpPath);
+        
+    } else {
+      console.log(`Generating thumbnail from video: ${slug}`);
+      
+      // First get video duration to calculate random timestamp
+      const getDurationArgs = [
+        '-i', inputPath,
+        '-show_entries', 'format=duration',
+        '-v', 'quiet',
+        '-of', 'csv=p=0'
+      ];
+      
+      let videoDuration;
+      try {
+        const durationResult = await new Promise((resolve, reject) => {
+          const ffprobe = spawn('ffprobe', getDurationArgs);
+          let stdout = '';
+          
+          ffprobe.stdout.on('data', (data) => {
+            stdout += data.toString();
+          });
+          
+          ffprobe.on('close', (code) => {
+            if (code === 0) {
+              resolve(stdout.trim());
+            } else {
+              reject(new Error(`FFprobe failed with code ${code}`));
+            }
+          });
+          
+          ffprobe.on('error', (error) => {
+            reject(new Error(`FFprobe spawn error: ${error.message}`));
+          });
+        });
+        
+        videoDuration = parseFloat(durationResult);
+      } catch (error) {
+        console.warn(`Could not get video duration, using fallback: ${error.message}`);
+        videoDuration = 30; // fallback duration
+      }
+      
+      // Generate random timestamp (avoid first and last 10% of video)
+      const minTime = Math.max(1, videoDuration * 0.1);
+      const maxTime = Math.max(minTime + 1, videoDuration * 0.9);
+      const randomTime = Math.random() * (maxTime - minTime) + minTime;
+      
+      console.log(`Using random timestamp ${randomTime.toFixed(2)}s for thumbnail`);
+      
+      const thumbArgs = [
+        '-i', inputPath,
+        '-ss', randomTime.toString(),
+        '-vframes', '1',
+        '-y', // Overwrite output file
+        thumbPngPath
+      ];
+
+      try {
+        await runFFmpegCommand(thumbArgs);
+      } catch (error) {
+        // If random timestamp fails, try at 1s as fallback
+        console.warn(`Thumbnail generation at ${randomTime}s failed, trying 1s: ${error.message}`);
+        const fallbackThumbArgs = [
+          '-i', inputPath,
+          '-ss', '1',
+          '-vframes', '1',
+          '-y',
+          thumbPngPath
+        ];
+        await runFFmpegCommand(fallbackThumbArgs);
+      }
+
+      // Convert generated thumbnail to WebP
+      console.log(`Converting generated thumbnail to WebP: ${slug}`);
+      await sharp(thumbPngPath)
+        .webp({ quality: 80 })
+        .toFile(thumbWebpPath);
+        
+      // Clean up temporary PNG file
+      await cleanupFile(thumbPngPath);
+    }
+
+    // Clean up temporary files
+    await cleanupFile(inputPath);
+
+    // Parse tags
+    const tags = tagsString && typeof tagsString === 'string' 
+      ? tagsString.split(' ').map(tag => tag.trim()).filter(tag => tag.length > 0) 
+      : [];
+
+    // Save to database
+    const videoData = {
+      title: title.trim(),
+      description: description.trim(),
+      slug: slug,
+      videoUrl: `/stream/${slug}/video.m3u8`,
+      thumbnail: `/stream/${slug}/thumb.webp`,
+      duration: clientDuration ? Math.round(Number(clientDuration)) : -1,
+      uploader: user._id,
+      tags: tags,
+      isProcessing: false
+    };
+
+    const newVideo = new Video(videoData);
+    await newVideo.save();
+
+    console.log(`Video upload completed successfully: ${slug}`);
+
+    return c.json({
+      success: true,
+      message: 'Video uploaded and processed successfully!',
+      video: newVideo.toObject(),
+    }, 201);
+
+  } catch (error) {
+    console.error('Error in POST /uploadVideo route:', error);
+
+    // Cleanup on error
+    if (inputPath) await cleanupFile(inputPath);
+    if (thumbPngPath) await cleanupFile(thumbPngPath);
+    if (workDir) {
+      try {
+        const files = await fs.readdir(workDir);
+        if (files.length === 0) {
+          await fs.rmdir(workDir);
+        }
+      } catch (cleanupError) {
+        console.warn('Failed to cleanup work directory:', cleanupError.message);
+      }
+    }
+
+    if (error.code === 11000) {
+      return c.json({ success: false, message: 'This video content seems to have already been uploaded.' }, 409);
+    }
+
+    if (error.message.includes('FFmpeg')) {
+      return c.json({ success: false, message: 'Video processing failed. Please ensure the video file is not corrupted.' }, 422);
+    }
+
+    if (error.code === 'ENOSPC') {
+      return c.json({ success: false, message: 'Server storage is full. Please try again later.' }, 507);
+    }
+
+    if (error.code === 'EACCES') {
+      return c.json({ success: false, message: 'Server permissions error. Please contact support.' }, 500);
+    }
+
+    return c.json({ success: false, message: 'An unexpected server error occurred during video processing.' }, 500);
+  }
+});
+
+export default router;

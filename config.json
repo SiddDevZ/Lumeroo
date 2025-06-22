@@ -1,0 +1,8 @@
+{
+    "name": "lumeroo",
+    "description": "A project by Siddharth to showcase video streaming and image streaming",
+    "version": "1.0.0",
+    "author": "Siddharth",
+    "license": "MIT",
+    "url": "http://localhost:3002"
+}

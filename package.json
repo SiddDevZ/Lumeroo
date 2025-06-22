@@ -1,0 +1,42 @@
+{
+  "name": "lumeroo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@cloudflare/stream-react": "^1.9.3",
+    "@react-oauth/google": "^0.12.2",
+    "@types/video.js": "^7.3.58",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.9.2",
+    "next": "15.3.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-icons": "^5.5.0",
+    "remixicon": "^4.6.0",
+    "sharp": "^0.34.2",
+    "sonner": "^2.0.3",
+    "tailwind-merge": "^3.2.0",
+    "video.js": "^8.22.0",
+    "videojs-contrib-quality-levels": "^4.1.0",
+    "videojs-hls-quality-selector": "^2.0.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9",
+    "eslint-config-next": "15.3.1",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^4.1.4",
+    "typescript": "^5"
+  }
+}
