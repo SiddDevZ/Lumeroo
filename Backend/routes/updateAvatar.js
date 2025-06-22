@@ -2,19 +2,17 @@ import { Hono } from 'hono'
 import User from '../models/User.js'
 import { rateLimiter } from 'hono-rate-limiter'
 import jwt from 'jsonwebtoken'
-import axios from 'axios'
-import FormDataNode from 'form-data'
 import sharp from 'sharp'
 import { config } from "dotenv"
+import { promises as fs } from 'fs'
+import path from 'path'
 
 config()
 
 const router = new Hono()
 
-const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID
-const CLOUDFLARE_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN
-const CLOUDFLARE_ACCOUNT_HASH = process.env.CLOUDFLARE_ACCOUNT_HASH || CLOUDFLARE_ACCOUNT_ID
 const JWT_SECRET = process.env.JWT_SECRET
+const STREAM_BASE_DIR = '/var/www/stream'
 
 const limiter = rateLimiter({
   windowMs: 15 * 60 * 1000,
@@ -24,57 +22,72 @@ const limiter = rateLimiter({
   keyGenerator: (c) => c.req.header('x-forwarded-for') || c.req.ip,
 })
 
-const uploadImageToCloudflare = async (imageFile) => {
-  try {
-    const imageBuffer = await imageFile.arrayBuffer()
+const generateAvatarSlug = async (username) => {
+  const timestamp = Date.now()
+  const random = Math.random().toString(36).substring(2, 8)
+  return `avatar-${username}-${timestamp}-${random}`
+}
 
-    const webpBuffer = await sharp(Buffer.from(imageBuffer))
+const ensureDirectoryExists = async (dirPath) => {
+  try {
+    await fs.access(dirPath)
+  } catch {
+    await fs.mkdir(dirPath, { recursive: true })
+  }
+}
+
+const deletePreviousAvatar = async (avatarUrl) => {
+  if (!avatarUrl || !avatarUrl.startsWith('/stream/')) {
+    return 
+  }
+  
+  try {
+    const fullPath = path.join('/var/www', avatarUrl)
+    await fs.unlink(fullPath)
+    console.log(`Deleted previous avatar: ${avatarUrl}`)
+
+    const dirPath = path.dirname(fullPath)
+    try {
+      const files = await fs.readdir(dirPath)
+      if (files.length === 0) {
+        await fs.rmdir(dirPath)
+        console.log(`Removed empty avatar directory: ${dirPath}`)
+      }
+    } catch (error) {
+    }
+  } catch (error) {
+    console.warn(`Failed to delete previous avatar ${avatarUrl}:`, error.message)
+  }
+}
+
+const saveAvatarToStream = async (avatarFile, slug) => {
+  try {
+    const imageBuffer = await avatarFile.arrayBuffer()
+    const workDir = path.join(STREAM_BASE_DIR, slug)
+    const avatarPath = path.join(workDir, 'avatar.webp')
+
+    await ensureDirectoryExists(STREAM_BASE_DIR)
+    await ensureDirectoryExists(workDir)
+
+    await sharp(Buffer.from(imageBuffer))
       .resize(300, 300, { 
         fit: 'cover',
         position: 'center'
       })
       .webp({ quality: 85 })
-      .toBuffer()
+      .toFile(avatarPath)
 
-    const directUploadForm = new FormDataNode()
-    directUploadForm.append('requireSignedURLs', 'false')
-
-    const directUploadResponse = await axios.post(
-      `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/images/v2/direct_upload`,
-      directUploadForm,
-      {
-        headers: {
-          ...directUploadForm.getHeaders(),
-          'Authorization': `Bearer ${CLOUDFLARE_API_TOKEN}`,
-        },
-      }
-    )
-
-    const { uploadURL, id: imageId } = directUploadResponse.data.result
-    if (!uploadURL || !imageId) {
-      throw new Error('Failed to get Cloudflare image direct upload URL.')
-    }
-
-    const imageFormData = new FormDataNode()
-    const originalFileName = imageFile.name
-    const webpFileName = originalFileName.substring(0, originalFileName.lastIndexOf('.')) + '.webp'
-    imageFormData.append('file', webpBuffer, webpFileName)
-
-    await axios.post(uploadURL, imageFormData, {
-      headers: imageFormData.getHeaders(),
-    })
-
-    return `https://imagedelivery.net/${CLOUDFLARE_ACCOUNT_HASH}/${imageId}/public`
+    return `/stream/${slug}/avatar.webp`
   } catch (error) {
-    console.error('Error uploading image to Cloudflare:', error.response ? JSON.stringify(error.response.data) : error.message)
-    throw error
+    console.error('Error saving avatar to stream:', error)
+    throw new Error(`Failed to save avatar: ${error.message}`)
   }
 }
 
 router.post('/', limiter, async (c) => {
   try {
-    if (!CLOUDFLARE_ACCOUNT_ID || !CLOUDFLARE_API_TOKEN || !JWT_SECRET) {
-      console.error('Server configuration error: Missing required environment variables')
+    if (!JWT_SECRET) {
+      console.error('Server configuration error: Missing JWT_SECRET')
       return c.json({ 
         success: false, 
         message: 'Server configuration error' 
@@ -133,25 +146,32 @@ router.post('/', limiter, async (c) => {
       }, 404)
     }
 
-    let avatarUrl
+    const previousAvatarUrl = user.avatar
+    const avatarSlug = await generateAvatarSlug(user.username)
+    let newAvatarUrl
     try {
-      avatarUrl = await uploadImageToCloudflare(avatarFile)
+      newAvatarUrl = await saveAvatarToStream(avatarFile, avatarSlug)
     } catch (error) {
-      console.error('Avatar upload error:', error)
+      console.error('Avatar save error:', error)
       return c.json({ 
         success: false, 
-        message: 'Failed to upload avatar image. Please try again.' 
+        message: 'Failed to save avatar image. Please try again.' 
       }, 500)
     }
 
-    user.avatar = avatarUrl
+    user.avatar = newAvatarUrl
     user.updatedAt = new Date()
     await user.save()
+    if (previousAvatarUrl) {
+      deletePreviousAvatar(previousAvatarUrl).catch(error => {
+        console.warn('Failed to delete previous avatar:', error.message)
+      })
+    }
 
     return c.json({
       success: true,
       message: 'Avatar updated successfully',
-      avatar: avatarUrl
+      avatar: newAvatarUrl
     }, 200)
     
   } catch (error) {

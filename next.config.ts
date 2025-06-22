@@ -9,7 +9,8 @@ const nextConfig: NextConfig = {
       "randomuser.me", 
       "unsplash.it",
       "picsum.photos",
-      "lh3.googleusercontent.com"
+      "lh3.googleusercontent.com",
+      "api.goonchan.org"
     ],
     remotePatterns: [
       {

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { FaEye, FaUser } from "react-icons/fa";
 import { FaRegImage } from "react-icons/fa6";
 import { VideoType, UploaderType } from "./Types";
+import config from "@/config.json";
 
 interface ImageGridProps {
   videos: VideoType[];
@@ -57,9 +58,10 @@ const ImageCard = ({
   const getThumbnailUrl = () => {
     if (video.imageUrls && Array.isArray(video.imageUrls)) {
       const thumbnailIndex = video.thumbnailIndex || 0;
-      return video.imageUrls[thumbnailIndex] || video.imageUrls[0];
+      const imageUrl = video.imageUrls[thumbnailIndex] || video.imageUrls[0];
+      return config.stream + imageUrl;
     }
-    return video.thumbnail || 'logo.png';
+    return config.stream + video.thumbnail || 'logo.png';
   };
 
   const getImageCount = () => {

@@ -20,6 +20,7 @@ import { Toaster, toast } from "sonner";
 import config from "@/config.json";
 import useUserAvatar from '@/hooks/useUserAvatar';
 import AuthModel from "@/components/authModel";
+import HLSVideoPlayer from '@/components/HLSVideoPlayer';
 
 interface VideoUploader {
   _id: string;
@@ -1572,7 +1573,7 @@ const WatchPageContent = () => {
                 <>
                   <div className="flex-1 px-2 relative w-full h-auto lg:h-full">
                     <Image
-                      src={video.imageUrls[currentImageIndex]}
+                      src={config.stream + video.imageUrls[currentImageIndex]}
                       alt={`${video.title} - Image ${currentImageIndex + 1}`}
                       width={0}
                       height={0}
@@ -1606,7 +1607,7 @@ const WatchPageContent = () => {
                                 }`}
                               >
                                 <Image
-                                  src={imageUrl}
+                                  src={config.stream + imageUrl}
                                   alt={`Thumbnail ${actualIndex + 1}`}
                                   fill
                                   className="object-cover group-hover:brightness-105 brightness-95 transition-all duration-200"
@@ -1689,7 +1690,7 @@ const WatchPageContent = () => {
               >
                 {video.thumbnail && (
                   <img
-                    src={video.thumbnail}
+                    src={config.stream + video.thumbnail}
                     alt="Loading thumbnail"
                     className="absolute top-0 left-0 w-full h-full object-cover opacity-30"
                   />
@@ -1702,27 +1703,17 @@ const WatchPageContent = () => {
                 </div>
               </div>
             )}
-{/* <Stream
-              controls
-              src={video.videoUrl || ""}
-              primaryColor="#cfcfcf"
-              poster={video.thumbnail || ""}
-              preload="metadata"
-              onLoadedMetaData={() => handleVideoLoad()}
-              // responsive={false}
+            
+            <HLSVideoPlayer
+              src={config.stream + video.videoUrl}
+              poster={video.thumbnail ? config.stream + video.thumbnail : undefined}
+              onLoadedMetadata={() => handleVideoLoad()}
               onError={() => setLoadingMessage("Error 404 - Video not found")}
               className={`w-full h-full ${isLoading ? "hidden" : ""}`}
               autoplay={false}
               muted={false}
-            /> */}
-            <iframe
-              src={videoSource}
-              className={`w-full h-full ${isLoading ? "hidden" : ""}`}
-              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
-              allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
-              allowFullScreen={true}
-              onLoad={() => handleVideoLoad()}
-            ></iframe>
+              controls={true}
+            />
           </div>
         )}
 

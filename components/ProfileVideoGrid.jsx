@@ -124,7 +124,7 @@ const ProfileVideoCard = ({ video, isOwnProfile, onDelete }) => {
             </div>
           ) : (
             <Image
-              src={video.thumbnail || ""}
+              src={config.stream + video.thumbnail || ""}
               alt={video.title || ""}
               width={640}
               height={360}

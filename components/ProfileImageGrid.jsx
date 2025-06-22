@@ -80,10 +80,10 @@ const ProfileImageCard = ({ image, isOwnProfile, onDelete }) => {
 
   return (
     <>
-      <Link href={`/image/${image.slug || image._id}`} className="group relative cursor-pointer">
+      <Link href={`/watch?v=${image.slug || image._id}`} className="group relative cursor-pointer">
         <div className="relative aspect-square overflow-hidden rounded-lg bg-[#101010]">
           <Image
-            src={thumbnailUrl}
+            src={config.stream + thumbnailUrl}
             alt={image.title || ""}
             width={400}
             height={400}

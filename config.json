@@ -4,5 +4,6 @@
     "version": "1.0.0",
     "author": "Siddharth",
     "license": "MIT",
-    "url": "https://api.goonchan.org/lumeroo"
+    "url": "https://api.goonchan.org/lumeroo",
+    "stream": "https://api.goonchan.org/"
 }

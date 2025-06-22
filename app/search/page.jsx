@@ -164,7 +164,7 @@ const SearchContent = () => {
         <Link href={linkPath} className="block">
           <div className="relative aspect-video overflow-hidden rounded-lg bg-[#101010]">
             <Image
-              src={result.thumbnail}
+              src={config.stream + result.thumbnail}
               alt={result.title}
               width={400}
               height={225}
@@ -191,7 +191,7 @@ const SearchContent = () => {
                 />
               ) : (
                 <div 
-                  className="w-full h-full flex items-center justify-center text-white font-bold text-sm"
+                  className="w-full h-full flex items-center justify-center text-white font-medium text-lg"
                   style={{ backgroundColor: result.uploader.avatarColor || '#1f1f1f' }}
                 >
                   {result.uploader.username.charAt(0).toUpperCase()}

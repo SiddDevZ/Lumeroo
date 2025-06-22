@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { VideoType } from './Types';
 import { RiUser3Line } from "react-icons/ri";
 import useUserAvatar from "@/hooks/useUserAvatar";
+import config from "@/config.json";
 
 const formatCount = (count: number): string => {
   if (count >= 1000000) {
@@ -62,7 +63,7 @@ const VideoCard: React.FC<VideoCardProps> = ({ video }) => {
       >
         <div className="relative aspect-video overflow-hidden rounded-lg bg-[#101010]">
           <Image 
-            src={video.thumbnail || ''} 
+            src={config.stream + video.thumbnail || ''} 
             alt={video.title || ''}
             width={640}
             height={360}

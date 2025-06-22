@@ -3,13 +3,15 @@ import Video from '../models/Video.js'
 import Image from '../models/Image.js'
 import User from '../models/User.js'
 import jwt from 'jsonwebtoken'
-import axios from 'axios'
 import { rateLimiter } from 'hono-rate-limiter'
-import { config } from "dotenv";
+import { config } from "dotenv"
+import { promises as fs } from 'fs'
+import path from 'path'
 
 config();
 
 const router = new Hono()
+const STREAM_BASE_DIR = '/var/www/stream'
 
 const limiter = rateLimiter({
   windowMs: 15 * 60 * 1000,
@@ -20,9 +22,6 @@ const limiter = rateLimiter({
 })
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
-const CLOUDFLARE_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
-const CLOUDFLARE_ACCOUNT_HASH = process.env.CLOUDFLARE_ACCOUNT_HASH || CLOUDFLARE_ACCOUNT_ID;
 
 const verifyTokenAndGetUser = async (token) => {
   if (!token) return null;
@@ -37,88 +36,25 @@ const verifyTokenAndGetUser = async (token) => {
   }
 };
 
-const deleteVideoFromCloudflare = async (cloudflareStreamId) => {
+const deleteLocalStreamFiles = async (content) => {
   try {
-    if (!cloudflareStreamId) {
-      console.warn('No Cloudflare Stream ID provided for deletion');
-      return false;
-    }
-
-    const response = await axios.delete(
-      `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream/${cloudflareStreamId}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${CLOUDFLARE_API_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
+    if (content.slug) {
+      const contentDir = path.join(STREAM_BASE_DIR, content.slug)
+      try {
+        await fs.rm(contentDir, { recursive: true, force: true })
+        console.log(`Deleted content directory: ${contentDir}`)
+        return true
+      } catch (error) {
+        console.warn(`Failed to delete content directory ${contentDir}:`, error.message)
+        return false
       }
-    );
-
-    if (response.data && response.data.success) {
-      console.log(`Successfully deleted video from Cloudflare Stream: ${cloudflareStreamId}`);
-      return true;
-    } else {
-      const errorDetails = response.data?.errors ? JSON.stringify(response.data.errors) : 'No error details provided';
-      console.error(`Failed to delete video from Cloudflare Stream: ${cloudflareStreamId}`, errorDetails);
-      return false;
     }
+    return false
   } catch (error) {
-    if (error.response?.status === 404) {
-      console.log(`Video already deleted or doesn't exist in Cloudflare Stream: ${cloudflareStreamId}`);
-      return true;
-    }
-    
-    const errorDetails = error.response?.data ? JSON.stringify(error.response.data) : error.message;
-    console.error(`Error deleting video from Cloudflare Stream (${cloudflareStreamId}):`, errorDetails);
-    return false;
+    console.warn(`Error deleting local stream files:`, error.message)
+    return false
   }
-};
-
-const deleteImageFromCloudflare = async (imageUrl) => {
-  try {
-    if (!imageUrl || !imageUrl.includes('imagedelivery.net')) {
-      console.warn('Invalid or non-Cloudflare image URL provided for deletion:', imageUrl);
-      return false;
-    }
-
-    const urlParts = imageUrl.split('/');
-    const imageId = urlParts[urlParts.length - 2];
-
-    if (!imageId || imageId === 'public') {
-      console.error('Could not extract image ID from URL:', imageUrl);
-      return false;
-    }
-
-    const response = await axios.delete(
-      `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/images/v1/${imageId}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${CLOUDFLARE_API_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    if (response.data && response.data.success) {
-      console.log(`Successfully deleted image from Cloudflare Images: ${imageId}`);
-      return true;
-    } else {
-      const errorDetails = response.data?.errors ? JSON.stringify(response.data.errors) : 'No error details provided';
-      console.error(`Failed to delete image from Cloudflare Images: ${imageId}`, errorDetails);
-      return false;
-    }
-  } catch (error) {
-    // Check if it's a 404 error (image already deleted or doesn't exist)
-    if (error.response?.status === 404) {
-      // console.log(`Image already deleted or doesn't exist in Cloudflare Images: ${imageUrl}`);
-      return true;
-    }
-    
-    const errorDetails = error.response?.data ? JSON.stringify(error.response.data) : error.message;
-    // console.error(`Error deleting image from Cloudflare Images (${imageUrl}):`, errorDetails);
-    return false;
-  }
-};
+}
 
 router.delete('/:type/:id', limiter, async (c) => {
   try {
@@ -174,37 +110,12 @@ router.delete('/:type/:id', limiter, async (c) => {
       }, 403)
     }
 
-    let cloudflareDeleteSuccess = true;
-    
-    if (type === 'video') {
-      if (content.cloudflareStreamId) {
-        cloudflareDeleteSuccess = await deleteVideoFromCloudflare(content.cloudflareStreamId);
-      }
-
-      if (content.thumbnail && content.thumbnail.includes('imagedelivery.net')) {
-        await deleteImageFromCloudflare(content.thumbnail);
-      }
-    } else if (type === 'image') {
-      if (content.imageUrls && content.imageUrls.length > 0) {
-        const deletePromises = content.imageUrls.map(imageUrl => deleteImageFromCloudflare(imageUrl));
-        const results = await Promise.allSettled(deletePromises);
-
-        const failedDeletions = results.filter(result => result.status === 'rejected' || !result.value);
-        if (failedDeletions.length > 0) {
-          console.warn(`Some images failed to delete from Cloudflare for image set ${id}`);
-          cloudflareDeleteSuccess = false;
-        }
-      }
-    }
+    const localDeleteSuccess = await deleteLocalStreamFiles(content)
 
     await Model.findByIdAndDelete(id)
 
-    if (!cloudflareDeleteSuccess) {
-      // console.warn(`${contentName} deleted from database but some Cloudflare files may not have been deleted: ${id}`);
-      return c.json({
-        success: true,
-        message: `${contentName} deleted successfully`,
-      }, 200)
+    if (!localDeleteSuccess) {
+      console.warn(`${contentName} deleted from database but local files may not have been deleted: ${id}`);
     }
 
     return c.json({

@@ -42,17 +42,14 @@ router.get('/:slug', limiter, async (c) => {
       }, 400)
     }
 
-    // Try to find video first
     let content = await Video.findOne({ slug }).populate('uploader', 'username avatar avatarColor subscriberCount')
     let contentType = 'video'
 
-    // If no video found, try to find image
     if (!content) {
       content = await Image.findOne({ slug }).populate('uploader', 'username avatar avatarColor subscriberCount')
       contentType = 'image'
     }
 
-    // If neither found, return 404
     if (!content) {
       return c.json({ 
         success: false, 
@@ -60,7 +57,6 @@ router.get('/:slug', limiter, async (c) => {
       }, 404)
     }
 
-    // Increment view count
     if (contentType === 'video') {
       await Video.findByIdAndUpdate(content._id, { $inc: { views: 1 } })
     } else {
@@ -92,7 +88,6 @@ router.get('/:slug', limiter, async (c) => {
       }
     }
 
-    // Build response based on content type
     let contentResponse;
     
     if (contentType === 'video') {
