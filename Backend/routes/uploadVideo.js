@@ -76,7 +76,9 @@ const cleanupFile = async (filePath) => {
   try {
     await fs.unlink(filePath);
   } catch (error) {
-    console.warn(`Failed to cleanup file ${filePath}:`, error.message);
+    if (error.code !== 'ENOENT') {
+      console.warn(`Failed to cleanup file ${filePath}:`, error.message);
+    }
   }
 };
 
@@ -153,11 +155,9 @@ router.post('/', async (c) => {
     await ensureDirectoryExists(STREAM_BASE_DIR);
     await ensureDirectoryExists(workDir);
 
-    console.log(`Saving video file for slug: ${slug}`);
     const videoBuffer = await videoFile.arrayBuffer();
     await fs.writeFile(inputPath, Buffer.from(videoBuffer));
 
-    console.log(`Converting video to HLS format: ${slug}`);
     const hlsArgs = [
       '-i', inputPath,
       '-codec:', 'copy',
@@ -170,21 +170,16 @@ router.post('/', async (c) => {
 
     await runFFmpegCommand(hlsArgs);
 
-    console.log(`Processing thumbnail: ${slug}`);
     
     if (thumbnailFile && thumbnailFile instanceof File && thumbnailFile.size > 0) {
-      console.log(`Using custom thumbnail for: ${slug}`);
       const thumbnailBuffer = await thumbnailFile.arrayBuffer();
-      
-      // Save custom thumbnail directly and convert to WebP
+
       await sharp(Buffer.from(thumbnailBuffer))
         .webp({ quality: 80 })
         .toFile(thumbWebpPath);
         
     } else {
-      console.log(`Generating thumbnail from video: ${slug}`);
-      
-      // First get video duration to calculate random timestamp
+
       const getDurationArgs = [
         '-i', inputPath,
         '-show_entries', 'format=duration',
@@ -218,28 +213,24 @@ router.post('/', async (c) => {
         videoDuration = parseFloat(durationResult);
       } catch (error) {
         console.warn(`Could not get video duration, using fallback: ${error.message}`);
-        videoDuration = 30; // fallback duration
+        videoDuration = 30;
       }
-      
-      // Generate random timestamp (avoid first and last 10% of video)
+
       const minTime = Math.max(1, videoDuration * 0.1);
       const maxTime = Math.max(minTime + 1, videoDuration * 0.9);
       const randomTime = Math.random() * (maxTime - minTime) + minTime;
-      
-      console.log(`Using random timestamp ${randomTime.toFixed(2)}s for thumbnail`);
-      
+
       const thumbArgs = [
         '-i', inputPath,
         '-ss', randomTime.toString(),
         '-vframes', '1',
-        '-y', // Overwrite output file
+        '-y',
         thumbPngPath
       ];
 
       try {
         await runFFmpegCommand(thumbArgs);
       } catch (error) {
-        // If random timestamp fails, try at 1s as fallback
         console.warn(`Thumbnail generation at ${randomTime}s failed, trying 1s: ${error.message}`);
         const fallbackThumbArgs = [
           '-i', inputPath,
@@ -251,25 +242,26 @@ router.post('/', async (c) => {
         await runFFmpegCommand(fallbackThumbArgs);
       }
 
-      // Convert generated thumbnail to WebP
-      console.log(`Converting generated thumbnail to WebP: ${slug}`);
+      try {
+        await fs.access(thumbPngPath);
+      } catch (e) {
+        console.error("Thumbnail file was not created by ffmpeg.");
+        throw new Error("Failed to generate video thumbnail.");
+      }
+
       await sharp(thumbPngPath)
         .webp({ quality: 80 })
         .toFile(thumbWebpPath);
-        
-      // Clean up temporary PNG file
+
       await cleanupFile(thumbPngPath);
     }
 
-    // Clean up temporary files
     await cleanupFile(inputPath);
 
-    // Parse tags
     const tags = tagsString && typeof tagsString === 'string' 
       ? tagsString.split(' ').map(tag => tag.trim()).filter(tag => tag.length > 0) 
       : [];
 
-    // Save to database
     const videoData = {
       title: title.trim(),
       description: description.trim(),
@@ -285,8 +277,6 @@ router.post('/', async (c) => {
     const newVideo = new Video(videoData);
     await newVideo.save();
 
-    console.log(`Video upload completed successfully: ${slug}`);
-
     return c.json({
       success: true,
       message: 'Video uploaded and processed successfully!',
@@ -296,7 +286,6 @@ router.post('/', async (c) => {
   } catch (error) {
     console.error('Error in POST /uploadVideo route:', error);
 
-    // Cleanup on error
     if (inputPath) await cleanupFile(inputPath);
     if (thumbPngPath) await cleanupFile(thumbPngPath);
     if (workDir) {
