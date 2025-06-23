@@ -12,6 +12,12 @@
   --breakpoint-3xl: 1920px;
 }
 
+.unselectable {
+  -webkit-user-select: none; /* Safari */
+  -ms-user-select: none; /* IE 10 and IE 11 */
+  user-select: none; /* Standard syntax */
+}
+
 @layer tailwind-utilities {
   .font-pop {
     font-family: var(--font-pop);

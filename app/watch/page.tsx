@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import NavBar from "@/components/NavBar";
@@ -326,6 +326,29 @@ const WatchPageContent = () => {
   const streamContainerRef = useRef<HTMLDivElement>(null);
   const [loadingMessage, setLoadingMessage] = useState("Loading video...");
   const { avatarUrl: uploaderAvatarUrl } = useUserAvatar(uploaderProfile) as { avatarUrl: string; isLoading: boolean };
+
+  const memoizedVideoPlayer = useMemo(() => {
+    if (video?.contentType === 'image' || !video?.videoUrl) return null;
+    
+    return (
+      <HLSVideoPlayer
+        src={config.stream + video.videoUrl}
+        poster={video.thumbnail ? config.stream + video.thumbnail : undefined}
+        onLoadedMetadata={() => handleVideoLoad()}
+        onError={() => setLoadingMessage("Error 404 - Video not found")}
+        className={`w-full h-full ${isLoading ? "hidden" : ""}`}
+        autoplay={false}
+        muted={false}
+        controls={true}
+      />
+    );
+  }, [video?.videoUrl, video?.thumbnail, isLoading]);
+
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [modalActive, setModalActive] = useState(false);
+  const [reportCategory, setReportCategory] = useState('');
+  const [reportDetails, setReportDetails] = useState('');
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   const isCurrentUserUploader = user && video?.uploader?._id && user._id === video.uploader._id;
   const THUMBNAILS_PER_PAGE_DESKTOP = 6; // 3x2 grid
@@ -1154,12 +1177,6 @@ const WatchPageContent = () => {
 
   const { avatarUrl: userAvatarUrl } = useUserAvatar(user) as { avatarUrl: string; isLoading: boolean };
 
-  const [showReportModal, setShowReportModal] = useState(false);
-  const [modalActive, setModalActive] = useState(false);
-  const [reportCategory, setReportCategory] = useState('');
-  const [reportDetails, setReportDetails] = useState('');
-  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
-
   const openReportModal = () => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -1704,16 +1721,7 @@ const WatchPageContent = () => {
               </div>
             )}
             
-            <HLSVideoPlayer
-              src={config.stream + video.videoUrl}
-              poster={video.thumbnail ? config.stream + video.thumbnail : undefined}
-              onLoadedMetadata={() => handleVideoLoad()}
-              onError={() => setLoadingMessage("Error 404 - Video not found")}
-              className={`w-full h-full ${isLoading ? "hidden" : ""}`}
-              autoplay={false}
-              muted={false}
-              controls={true}
-            />
+            {memoizedVideoPlayer}
           </div>
         )}
 
@@ -2216,7 +2224,7 @@ const WatchPageContent = () => {
                           {comment.replyCount > 0 && (
                             <button
                               onClick={() => toggleReplies(comment._id)}
-                              className="text-[#d6d203] hover:text-[#d63384] hover:bg-[#d6d203]/5 text-xs transition-all duration-200 font-medium flex items-center gap-1 px-1.5 py-1 rounded ml-1 cursor-pointer"
+                              className="text-[#d6d203] hover:bg-[#d6d203]/5 text-xs transition-all duration-200 font-medium flex items-center gap-1 px-1.5 py-1 rounded ml-1 cursor-pointer"
                             >
                               <i className={`ri-arrow-${expandedReplies.has(comment._id) ? 'up' : 'down'}-s-line transition-transform duration-200 text-xs`}></i>
                               <span className="">{expandedReplies.has(comment._id) ? 'Hide' : 'Show'} {comment.replyCount}</span>
@@ -2229,7 +2237,7 @@ const WatchPageContent = () => {
                           <div className="mt-3 flex gap-2 bg-[#0a0a0a]/40 rounded-lg p-2.5 border border-[#2a2a2a]/40 animate-in slide-in-from-top-2 duration-200">
                             <div className="w-6 h-6 rounded-full flex-shrink-0 overflow-hidden bg-[#2a2a2a] ring-1 ring-[#3a3a3a]">
                               <Image
-                                src={user ? (user.avatar || userAvatarUrl || "/logo.webp") : "/logo.webp"}
+                                src={user ? (config.stream + user.avatar || userAvatarUrl || "/logo.webp") : "/logo.webp"}
                                 alt={user?.username || "User"}
                                 width={24}
                                 height={24}
@@ -2380,7 +2388,7 @@ const WatchPageContent = () => {
             {!commentsLoading && comments.length === 0 && (
               <div className="text-center py-16 px-4 lg:px-0">
                 <div className="bg-[#111]/40 rounded-2xl p-8 border border-[#2a2a2a]/40 max-w-md mx-auto">
-                  <div className="text-5xl mb-4 opacity-60">💬</div>
+                  {/* <div className="text-5xl mb-4 opacity-60">💬</div> */}
                   <h4 className="text-[#e0e0e0] text-lg font-semibold mb-2">No comments yet</h4>
                   <p className="text-[#999] text-sm">
                     {user ? "Be the first to share what you think!" : "Sign in to start the conversation!"}

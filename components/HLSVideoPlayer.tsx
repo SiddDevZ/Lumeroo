@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
+import { FiAlertTriangle, FiPlay, FiRefreshCw, FiPause, FiVolume2, FiVolumeX, FiMaximize, FiMinimize } from 'react-icons/fi';
 
 interface HLSVideoPlayerProps {
   src: string;
@@ -23,8 +24,25 @@ const HLSVideoPlayer: React.FC<HLSVideoPlayerProps> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<any>(null);
+  const progressBarRef = useRef<HTMLDivElement>(null);
+  const volumeBarRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [isVideoReady, setIsVideoReady] = useState(false);
+
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [isMuted, setIsMuted] = useState(muted);
+  const [showControls, setShowControls] = useState(true);
+  const [isHovering, setIsHovering] = useState(false);
+  const [isDraggingProgress, setIsDraggingProgress] = useState(false);
+  const [isDraggingVolume, setIsDraggingVolume] = useState(false);
+  const [dragTime, setDragTime] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -34,6 +52,8 @@ const HLSVideoPlayer: React.FC<HLSVideoPlayerProps> = ({
       try {
         setIsLoading(true);
         setError(null);
+        setLoadingProgress(0);
+        setIsVideoReady(false);
 
         const { default: Hls } = await import('hls.js');
 
@@ -58,18 +78,30 @@ const HLSVideoPlayer: React.FC<HLSVideoPlayerProps> = ({
 
           hls.on(Hls.Events.MEDIA_ATTACHED, () => {
             console.log('HLS: Media attached');
+            setLoadingProgress(25);
           });
 
           hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
             console.log('HLS: Manifest parsed, found', data.levels.length, 'quality levels');
-            setIsLoading(false);
-            if (onLoadedMetadata) {
-              onLoadedMetadata();
-            }
+            setLoadingProgress(75);
+            setTimeout(() => {
+              setIsLoading(false);
+              setIsVideoReady(true);
+              if (onLoadedMetadata) {
+                onLoadedMetadata();
+              }
+            }, 300);
+          });
+
+          hls.on(Hls.Events.FRAG_LOADED, () => {
+            setLoadingProgress(50);
+          });
+
+          hls.on(Hls.Events.BUFFER_APPENDED, () => {
+            setLoadingProgress(90);
           });
 
           hls.on(Hls.Events.ERROR, (event, data) => {
-            // Handle different types of errors more gracefully
             if (data.fatal) {
               console.error('HLS Fatal Error:', data);
               switch (data.type) {
@@ -111,22 +143,21 @@ const HLSVideoPlayer: React.FC<HLSVideoPlayerProps> = ({
             console.log('HLS: Quality switched to level', data.level);
           });
 
-          hls.on(Hls.Events.FRAG_LOADED, () => {
-          });
-
-          hls.on(Hls.Events.BUFFER_APPENDED, () => {
-          });
-
           hls.attachMedia(video);
           hls.loadSource(src);
 
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
           video.src = src;
+          setLoadingProgress(50);
           video.addEventListener('loadedmetadata', () => {
-            setIsLoading(false);
-            if (onLoadedMetadata) {
-              onLoadedMetadata();
-            }
+            setLoadingProgress(100);
+            setTimeout(() => {
+              setIsLoading(false);
+              setIsVideoReady(true);
+              if (onLoadedMetadata) {
+                onLoadedMetadata();
+              }
+            }, 300);
           });
           video.addEventListener('error', () => {
             setError('Failed to load video');
@@ -151,7 +182,6 @@ const HLSVideoPlayer: React.FC<HLSVideoPlayerProps> = ({
 
     initializePlayer();
 
-    // Cleanup function
     return () => {
       if (hlsRef.current) {
         hlsRef.current.destroy();
@@ -160,6 +190,105 @@ const HLSVideoPlayer: React.FC<HLSVideoPlayerProps> = ({
     };
   }, [src, onLoadedMetadata, onError]);
 
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleTimeUpdate = () => {
+      if (!isDraggingProgress) {
+        setCurrentTime(video.currentTime);
+      }
+    };
+    const handleDurationChange = () => setDuration(video.duration);
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+    const handleVolumeChange = () => {
+      setVolume(video.volume);
+      setIsMuted(video.muted);
+    };
+
+    video.addEventListener('timeupdate', handleTimeUpdate);
+    video.addEventListener('durationchange', handleDurationChange);
+    video.addEventListener('play', handlePlay);
+    video.addEventListener('pause', handlePause);
+    video.addEventListener('volumechange', handleVolumeChange);
+
+    return () => {
+      video.removeEventListener('timeupdate', handleTimeUpdate);
+      video.removeEventListener('durationchange', handleDurationChange);
+      video.removeEventListener('play', handlePlay);
+      video.removeEventListener('pause', handlePause);
+      video.removeEventListener('volumechange', handleVolumeChange);
+    };
+  }, [isVideoReady, isDraggingProgress]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDraggingProgress && progressBarRef.current && duration) {
+        const rect = progressBarRef.current.getBoundingClientRect();
+        const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        const time = percent * duration;
+        setDragTime(time);
+        if (videoRef.current) {
+          videoRef.current.currentTime = time;
+          setCurrentTime(time); // This makes the visual bar update instantly
+        }
+      }
+
+      if (isDraggingVolume && volumeBarRef.current) {
+        const rect = volumeBarRef.current.getBoundingClientRect();
+        const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        setVolume(percent);
+        if (videoRef.current) {
+          videoRef.current.volume = percent;
+          if (percent > 0) {
+            videoRef.current.muted = false;
+          }
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingProgress(false);
+      setIsDraggingVolume(false);
+    };
+
+    if (isDraggingProgress || isDraggingVolume) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingProgress, isDraggingVolume, duration, dragTime]);
+
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    
+    if (isPlaying && !isHovering && !isDraggingProgress && !isDraggingVolume && !isFullscreen) {
+      timeout = setTimeout(() => {
+        setShowControls(false);
+      }, 3000);
+    } else {
+      setShowControls(true);
+    }
+
+    return () => clearTimeout(timeout);
+  }, [isPlaying, isHovering, isDraggingProgress, isDraggingVolume, isFullscreen]);
+
   const handleVideoError = () => {
     setError('Video playback error');
     if (onError) {
@@ -167,41 +296,247 @@ const HLSVideoPlayer: React.FC<HLSVideoPlayerProps> = ({
     }
   };
 
+  const handleRetry = () => {
+    setError(null);
+    setIsLoading(true);
+    setLoadingProgress(0);
+    const currentSrc = src;
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
+  };
+
+  const togglePlayPause = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!videoRef.current) return;
+    
+    if (isPlaying) {
+      videoRef.current.pause();
+    } else {
+      videoRef.current.play();
+    }
+  };
+
+  const handleVideoClick = (e: React.MouseEvent) => {
+    // Don't toggle if clicking on controls
+    if ((e.target as HTMLElement).closest('.video-controls')) {
+      return;
+    }
+    togglePlayPause(e);
+  };
+
+  const handleProgressMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!videoRef.current || !duration) return;
+    
+    setIsDraggingProgress(true);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const percent = (e.clientX - rect.left) / rect.width;
+    const time = percent * duration;
+    setDragTime(time);
+  };
+
+  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!videoRef.current || !duration || isDraggingProgress) return;
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    const percent = (e.clientX - rect.left) / rect.width;
+    const time = percent * duration;
+    
+    videoRef.current.currentTime = time;
+    setCurrentTime(time);
+  };
+
+  const toggleMute = () => {
+    if (!videoRef.current) return;
+    videoRef.current.muted = !videoRef.current.muted;
+  };
+
+  const handleVolumeMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!videoRef.current) return;
+    
+    setIsDraggingVolume(true);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    
+    videoRef.current.volume = percent;
+    if (percent > 0) {
+      videoRef.current.muted = false;
+    }
+  };
+
+  const toggleFullscreen = () => {
+    if (!containerRef.current) return;
+    
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      containerRef.current.requestFullscreen();
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   if (error) {
     return (
-      <div className={`flex items-center justify-center bg-black text-white ${className}`}>
-        <div className="text-center">
-          <div className="text-red-500 mb-2">⚠️</div>
-          <p className="text-sm">{error}</p>
+      <div className={`relative overflow-hidden rounded-xl bg-gradient-to-br from-[#0a0a0a] via-[#121212] to-[#1a1a1a] border border-[#2a2a2a] ${className}`}>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(214,210,3,0.03),transparent_70%)]" />
+        <div className="relative flex flex-col items-center justify-center h-full min-h-[200px] p-8 text-center">
+          <div className="mb-6 p-4 rounded-full bg-red-500/10 border border-red-500/20">
+            <FiAlertTriangle className="text-red-400 text-3xl" />
+          </div>
+          <h3 className="text-white text-lg font-semibold mb-2">Playback Error</h3>
+          <p className="text-[#c2c2c2] text-sm mb-6 max-w-md leading-relaxed">{error}</p>
+          <button
+            onClick={handleRetry}
+            className="flex items-center gap-2 px-6 py-3 bg-[#d6d203] hover:bg-[#e8e635] text-black font-semibold rounded-full transition-all duration-300 transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#d6d203]/50"
+          >
+            <FiRefreshCw className="text-lg" />
+            Try Again
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`relative ${className}`}>
+    <div 
+      ref={containerRef}
+      className={`relative overflow-hidden ${isFullscreen ? 'w-full h-full' : 'rounded-xl'} bg-black ${isFullscreen ? '' : 'border border-[#2a2a2a] shadow-2xl'} ${className}`}
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(214,210,3,0.02),transparent_70%)] pointer-events-none" />
+
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
-          <div className="flex flex-col items-center">
-            <div className="w-12 h-12 border-4 border-[#1a1a1a] border-t-[#d6d203] rounded-full animate-spin mb-3"></div>
-            <p className="text-white text-base">Loading video...</p>
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#0a0a0a] via-[#121212] to-[#1a1a1a] z-20 transition-opacity duration-500">
+          <div className="flex flex-col items-center space-y-6">
+
+            <div className="w-48 h-1 bg-[#2a2a2a] rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-[#d6d203] to-[#e8e635] rounded-full transition-all duration-700 ease-out"
+                style={{ width: `${loadingProgress}%` }}
+              />
+            </div>
+            
+            {/* Loading text with typewriter effect */}
+            <div className="text-center">
+              <p className="text-white text-lg font-medium mb-1">Loading video...</p>
+              <p className="text-[#9e9e9e] text-sm">{loadingProgress}% complete</p>
+            </div>
           </div>
         </div>
       )}
-      
+
       <video
         ref={videoRef}
-        className="w-full h-full"
-        controls={controls}
+        className={`w-full h-full ${isFullscreen ? '' : 'rounded-xl'} transition-opacity duration-700 ${isVideoReady ? 'opacity-100' : 'opacity-0'} cursor-pointer`}
+        controls={false}
         autoPlay={autoplay}
         muted={muted}
         poster={poster}
         onError={handleVideoError}
+        onClick={handleVideoClick}
         style={{ backgroundColor: 'black' }}
         playsInline
       >
         Your browser does not support the video tag.
       </video>
+      
+      {controls && isVideoReady && (
+        <div className={`video-controls absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent ${isFullscreen ? 'p-6' : 'p-4'} transition-all duration-300 ${showControls || isFullscreen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>
+          <div className={`${isFullscreen ? 'mb-1' : 'mb-1.5'}`}>
+            <div 
+              ref={progressBarRef}
+              className={`w-full ${isFullscreen ? 'py-3' : 'py-2'} cursor-pointer group flex items-center`}
+              onMouseDown={handleProgressMouseDown}
+              onClick={handleProgressClick}
+            >
+              <div className={`w-full ${isFullscreen ? 'h-1.5' : 'h-1'} bg-white/20 rounded-full relative transition-all duration-150`}>
+                <div 
+                  className={`h-full bg-[#d6d203] rounded-full relative`}
+                  style={{ width: `${duration ? ((isDraggingProgress ? dragTime : currentTime) / duration) * 100 : 0}%` }}
+                >
+                  <div className={`absolute right-0 top-1/2 transform -translate-y-1/2 ${isFullscreen ? 'w-4 h-4' : 'w-3 h-3'} bg-[#d6d203] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-150 shadow-lg`} />
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div className={`flex items-center ${isFullscreen ? 'space-x-6' : 'space-x-4'}`}>
+              <button
+                onClick={togglePlayPause}
+                className={`text-white hover:text-[#d6d203] transition-colors duration-200 ${isFullscreen ? 'p-3' : 'p-2'} hover:bg-white/10 rounded-full cursor-pointer`}
+              >
+                {isPlaying ? <FiPause size={isFullscreen ? 28 : 20} /> : <FiPlay size={isFullscreen ? 28 : 20} />}
+              </button>
+
+              <div className={`flex items-center ${isFullscreen ? 'space-x-4' : 'space-x-2'}`}>
+                <button
+                  onClick={toggleMute}
+                  className={`text-white hover:text-[#d6d203] transition-colors duration-200 ${isFullscreen ? 'p-3' : 'p-2'} hover:bg-white/10 rounded-full cursor-pointer`}
+                >
+                  {isMuted || volume === 0 ? <FiVolumeX size={isFullscreen ? 24 : 18} /> : <FiVolume2 size={isFullscreen ? 24 : 18} />}
+                </button>
+
+                <div className={`${isFullscreen ? 'w-32 py-3' : 'w-20 py-2'} cursor-pointer flex items-center`}>
+                  <div 
+                    ref={volumeBarRef}
+                    className={`w-full ${isFullscreen ? 'h-1.5' : 'h-1'} bg-white/20 rounded-full relative hover:h-2 transition-all duration-150`}
+                    onMouseDown={handleVolumeMouseDown}
+                  >
+                    <div 
+                      className={`h-full bg-[#e8e8e8] rounded-full relative`}
+                      style={{ width: `${isMuted ? 0 : volume * 100}%` }}
+                    >
+                      {/* bg-[#d6d203] */}
+                      <div className={`absolute right-0 top-1/2 transform -translate-y-1/2 ${isFullscreen ? 'w-3 h-3' : 'w-2 h-2'} bg-[#e8e8e8] rounded-full shadow-lg`} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className={`text-white ${isFullscreen ? 'text-lg' : 'text-sm'} unselectable font-medium`}>
+                {formatTime(isDraggingProgress ? dragTime : currentTime)} / {formatTime(duration)}
+              </div>
+            </div>
+            
+            <div className={`flex items-center ${isFullscreen ? 'space-x-6' : 'space-x-4'}`}>
+              <button
+                onClick={toggleFullscreen}
+                className={`text-white hover:text-[#d6d203] transition-colors duration-200 ${isFullscreen ? 'p-3' : 'p-2'} hover:bg-white/10 rounded-full cursor-pointer`}
+              >
+                {isFullscreen ? <FiMinimize size={isFullscreen ? 24 : 18} /> : <FiMaximize size={isFullscreen ? 24 : 18} />}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isVideoReady && !isPlaying && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div 
+            className={`bg-[#d6d203]/20 backdrop-blur-sm ${isFullscreen ? 'w-20 h-20' : 'w-16 h-16'} rounded-full shadow-2xl transform transition-all duration-300 pointer-events-auto cursor-pointer flex items-center justify-center ${
+              isHovering 
+                ? 'scale-110 bg-[#d6d203]/30 border-[#d6d203]/50' 
+                : 'scale-100 hover:scale-110 hover:bg-[#d6d203]/30'
+            }`} 
+            onClick={togglePlayPause}
+          >
+            <FiPlay className={`text-[#d6d203] ${isFullscreen ? 'text-3xl' : 'text-2xl'} ml-0.5 drop-shadow-lg`} />
+          </div>
+        </div>
+      )}
+      
+      <div className={`absolute inset-0 ${isFullscreen ? '' : 'rounded-xl'} border border-transparent bg-gradient-to-r from-[#d6d203]/20 via-transparent to-[#d6d203]/20 opacity-0 hover:opacity-100 transition-opacity duration-500 pointer-events-none`} />
     </div>
   );
 };
