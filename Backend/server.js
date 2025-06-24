@@ -34,6 +34,8 @@ import recommendedRoute from "./routes/recommended.js";
 import commentsRoute from "./routes/comments.js";
 import reportsRoute from "./routes/reports.js";
 import googleAuthRoute from "./routes/googleAuth.js";
+import youtubeDownloaderRoute from "./routes/youtubeDown.js";
+import youtubeUploadRoute from "./routes/youtubeUpload.js";
 
 const app = new Hono();
 
@@ -79,6 +81,8 @@ app.route('/api/related', relatedRoute);
 app.route('/api/recommended', recommendedRoute);
 app.route('/api/comments', commentsRoute);
 app.route('/api/reports', reportsRoute);
+app.route('/api/youtube-downloader', youtubeDownloaderRoute);
+app.route('/api/youtube-upload', youtubeUploadRoute);
 const server = serve({
   fetch: app.fetch,
   port,

@@ -7,6 +7,8 @@ import User from '../models/User.js';
 import { config } from "dotenv";
 import jwt from 'jsonwebtoken';
 import sharp from 'sharp';
+import ffmpegPath from 'ffmpeg-static';
+import ffprobePath from 'ffprobe-static';
 
 config();
 
@@ -51,7 +53,7 @@ const ensureDirectoryExists = async (dirPath) => {
 
 const runFFmpegCommand = (args) => {
   return new Promise((resolve, reject) => {
-    const ffmpeg = spawn('ffmpeg', args);
+        const ffmpeg = spawn(ffmpegPath, args);
     let stderr = '';
 
     ffmpeg.stderr.on('data', (data) => {
@@ -128,9 +130,9 @@ router.post('/', async (c) => {
       return c.json({ success: false, message: 'Only video files (MP4, WebM, AVI, MOV) are allowed.' }, 400);
     }
 
-    const maxSize = 2 * 1024 * 1024 * 1024; // 2GB
+    const maxSize = 1 * 1024 * 1024 * 1024; // 2GB
     if (videoFile.size > maxSize) {
-      return c.json({ success: false, message: 'Video file size must be less than 2GB.' }, 400);
+      return c.json({ success: false, message: 'Video file size must be less than 1GB.' }, 400);
     }
 
     if (thumbnailFile && thumbnailFile instanceof File && thumbnailFile.size > 0) {
@@ -190,7 +192,7 @@ router.post('/', async (c) => {
       let videoDuration;
       try {
         const durationResult = await new Promise((resolve, reject) => {
-          const ffprobe = spawn('ffprobe', getDurationArgs);
+          const ffprobe = spawn(ffprobePath, getDurationArgs);
           let stdout = '';
           
           ffprobe.stdout.on('data', (data) => {

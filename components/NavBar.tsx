@@ -399,7 +399,7 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
                 className="cursor-pointer" 
                 onClick={handleProfileNavigation}
               >
-                <div className={`group hover:scale-[1.05] transition-scale bg-[#181818] ${user && (user.avatar || avatarUrl) ? "border-2 border-[#323232]" : "p-[0.55rem] border-2 border-[#595959]"} rounded-full flex items-center justify-center overflow-hidden`}>
+                <div className={`group hover:scale-[1.05] transition-scale bg-[#181818] ${user && (user.avatar || avatarUrl) ? "border-2 border-[#323232]" : "p-[0.55rem] border-2 border-[#595959]"} rounded-full ease-out duration-200 flex items-center justify-center overflow-hidden`}>
                   {user && (user.avatar || avatarUrl) ? (
                     <Image
                       src={user.avatar ? (config.stream + user.avatar) : avatarUrl}

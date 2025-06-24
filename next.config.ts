@@ -10,7 +10,9 @@ const nextConfig: NextConfig = {
       "unsplash.it",
       "picsum.photos",
       "lh3.googleusercontent.com",
-      "api.goonchan.org"
+      "api.goonchan.org",
+      "img.youtube.com",
+      "i.ytimg.com"
     ],
     remotePatterns: [
       {

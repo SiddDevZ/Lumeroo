@@ -1831,7 +1831,7 @@ const WatchPageContent = () => {
               >
                 <FaBell className="text-sm" />
                 <span className="font-inter">
-                  {isCurrentUserUploader ? 'Subscribed' : (isSubscribed ? 'Subscribed' : 'Subscribe')}
+                  {isCurrentUserUploader ? 'Your Content' : (isSubscribed ? 'Subscribed' : 'Subscribe')}
                 </span>
               </button>
             </div>
@@ -1921,7 +1921,7 @@ const WatchPageContent = () => {
             >
               <FaBell className="text-sm" />
               <span className="font-inter">
-                {isCurrentUserUploader ? 'Subscribed' : (isSubscribed ? 'Subscribed' : 'Subscribe')}
+                {isCurrentUserUploader ? 'Your Content' : (isSubscribed ? 'Subscribed' : 'Subscribe')}
               </span>
             </button>
           </div>
