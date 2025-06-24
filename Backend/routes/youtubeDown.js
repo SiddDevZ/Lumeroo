@@ -1,61 +1,66 @@
 import { Hono } from 'hono'
-import YTDlpWrap from 'yt-dlp-wrap'
+import ytdl from '@distube/ytdl-core'
 import fs from 'fs'
 import path from 'path'
+import { PassThrough } from 'stream'
+import cp from 'child_process'
 import ffmpeg from 'ffmpeg-static'
 import { fileURLToPath } from 'url'
 
 const router = new Hono()
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-const ytdlp = new YTDlpWrap()
 
 router.post('/init', async (c) => {
   try {
     const { url, includeDescription } = await c.req.json()
     
-    if (!url) {
+    if (!url || !ytdl.validateURL(url)) {
       return c.json({
         success: false,
         message: 'Invalid YouTube URL'
       }, 400)
     }
 
-    const info = await ytdlp.getVideoInfo(url)
-    const videoDetails = info
+    const info = await ytdl.getInfo(url)
+    const videoDetails = info.videoDetails
+
+    const formats = ytdl.filterFormats(info.formats, 'videoandaudio')
+    const videoOnlyFormats = ytdl.filterFormats(info.formats, 'videoonly')
+    const audioFormats = ytdl.filterFormats(info.formats, 'audioonly')
 
     const qualityOptions = []
     const qualityMap = new Map()
 
-    info.formats.forEach(format => {
-      const quality = format.format_note || format.resolution
-      if (quality && format.vcodec !== 'none' && format.acodec !== 'none' && !qualityMap.has(quality)) {
-        qualityMap.set(quality, {
-          quality: quality,
-          format: format.ext || 'mp4',
-          size: format.filesize || format.filesize_approx ? `${Math.round((format.filesize || format.filesize_approx) / 1024 / 1024)} MB` : 'Unknown',
+    formats.forEach(format => {
+      if (format.qualityLabel && !qualityMap.has(format.qualityLabel)) {
+        qualityMap.set(format.qualityLabel, {
+          quality: format.qualityLabel,
+          format: 'mp4',
+          size: format.contentLength ? `${Math.round(format.contentLength / 1024 / 1024)} MB` : 'Unknown',
           fps: format.fps ? `${format.fps}fps` : '30fps',
           hasAudio: true,
-          itag: format.format_id
+          itag: format.itag
         })
       }
     })
 
-    info.formats.forEach(format => {
-      const quality = format.format_note || format.resolution
-      if (quality && format.vcodec !== 'none' && format.acodec === 'none' && !qualityMap.has(quality)) {
-        qualityMap.set(quality, {
-          quality: quality,
-          format: format.ext || 'mp4',
-          size: format.filesize || format.filesize_approx ? `${Math.round((format.filesize || format.filesize_approx) / 1024 / 1024)} MB` : 'Unknown',
-          fps: format.fps ? `${format.fps}fps` : '30fps',
-          hasAudio: false,
-          itag: format.format_id
-        })
-      }
-    })
+    if (audioFormats.length > 0) {
+      videoOnlyFormats.forEach(format => {
+        if (format.qualityLabel && !qualityMap.has(format.qualityLabel)) {
+          qualityMap.set(format.qualityLabel, {
+            quality: format.qualityLabel,
+            format: 'mp4',
+            size: format.contentLength ? `${Math.round(format.contentLength / 1024 / 1024)} MB` : 'Unknown',
+            fps: format.fps ? `${format.fps}fps` : '30fps',
+            hasAudio: false,
+            itag: format.itag
+          })
+        }
+      })
+    }
 
-    const qualityOrder = ['4320p', '2160p', '1440p', '1080p', '720p', '480p', '360p', '240p', '144p']
+    const qualityOrder = ['2160p', '1440p', '1080p', '720p', '480p', '360p', '240p', '144p']
     qualityOptions.push(...Array.from(qualityMap.values()).sort((a, b) => {
       const aIndex = qualityOrder.indexOf(a.quality)
       const bIndex = qualityOrder.indexOf(b.quality)
@@ -63,11 +68,11 @@ router.post('/init', async (c) => {
     }))
 
     const videoInfo = {
-      id: videoDetails.id,
+      id: videoDetails.videoId,
       title: videoDetails.title,
       thumbnail: videoDetails.thumbnails?.[videoDetails.thumbnails.length - 1]?.url || '',
-      duration: videoDetails.duration ? formatDuration(videoDetails.duration) : 'Unknown',
-      views: formatViews(videoDetails.view_count),
+      duration: videoDetails.lengthSeconds ? formatDuration(videoDetails.lengthSeconds) : 'Unknown',
+      views: formatViews(videoDetails.viewCount),
       qualities: qualityOptions
     }
     if (includeDescription) {
@@ -92,7 +97,7 @@ router.post('/download', async (c) => {
   try {
     const { url, quality } = await c.req.json()
     
-    if (!url) {
+    if (!url || !ytdl.validateURL(url)) {
       return c.json({
         success: false,
         message: 'Invalid YouTube URL'
@@ -106,20 +111,19 @@ router.post('/download', async (c) => {
       }, 400)
     }
 
-    const info = await ytdlp.getVideoInfo(url)
-    const title = info.title.replace(/[<>:"/\|?*]/g, '_')
+    const info = await ytdl.getInfo(url)
+    const title = info.videoDetails.title.replace(/[<>:"/\\|?*]/g, '_')
     const outputFolder = path.join(__dirname, '../temp')
     const outputPath = path.join(outputFolder, `${title}_${quality}_${Date.now()}.mp4`)
 
     fs.mkdirSync(outputFolder, { recursive: true })
 
     const formats = info.formats
-    let selectedVideoFormat = formats.find(f => (f.format_note === quality || f.resolution === quality) && f.vcodec !== 'none' && f.acodec !== 'none')
+    let selectedVideoFormat = formats.find(f => f.qualityLabel === quality && f.hasVideo && f.hasAudio)
     
     if (!selectedVideoFormat) {
-      const videoFormat = formats.find(f => (f.format_note === quality || f.resolution === quality) && f.vcodec !== 'none' && f.acodec === 'none')
-      const audioFormats = formats.filter(f => f.acodec !== 'none' && f.vcodec === 'none').sort((a, b) => (b.abr || 0) - (a.abr || 0))
-      const audioFormat = audioFormats[0]
+      const videoFormat = formats.find(f => f.qualityLabel === quality && f.hasVideo && !f.hasAudio)
+      const audioFormat = ytdl.chooseFormat(formats, { quality: 'highestaudio', filter: 'audioonly' })
       
       if (!videoFormat || !audioFormat) {
         return c.json({
@@ -169,21 +173,64 @@ router.post('/download', async (c) => {
 })
 
 function downloadAndMerge(url, videoFormat, audioFormat, outputPath) {
-  return ytdlp.exec([
-    url,
-    '-f', `${videoFormat.format_id}+${audioFormat.format_id}`,
-    '--ffmpeg-location', ffmpeg,
-    '-o', outputPath
-  ])
+  return new Promise((resolve, reject) => {
+    const videoStream = new PassThrough()
+    const audioStream = new PassThrough()
+
+    ytdl(url, { format: videoFormat }).pipe(videoStream)
+    ytdl(url, { format: audioFormat }).pipe(audioStream)
+
+    const ff = cp.spawn(ffmpeg, [
+      '-loglevel', 'error',
+      '-y',
+      '-i', 'pipe:3',
+      '-i', 'pipe:4',
+      '-map', '0:v?',
+      '-map', '1:a?',
+      '-c:v', 'copy',
+      '-c:a', 'aac',
+      '-shortest',
+      outputPath
+    ], {
+      stdio: ['inherit', 'inherit', 'inherit', 'pipe', 'pipe']
+    })
+
+    videoStream.pipe(ff.stdio[3])
+    audioStream.pipe(ff.stdio[4])
+
+    ff.on('close', (code) => {
+      if (code === 0) {
+        resolve()
+      } else {
+        reject(new Error(`FFmpeg exited with code ${code}`))
+      }
+    })
+
+    ff.on('error', (err) => {
+      reject(err)
+    })
+  })
 }
 
 function downloadDirect(url, format, outputPath) {
-  return ytdlp.exec([
-    url,
-    '-f', format.format_id,
-    '--ffmpeg-location', ffmpeg,
-    '-o', outputPath
-  ])
+  return new Promise((resolve, reject) => {
+    const stream = ytdl(url, { format: format })
+    const writeStream = fs.createWriteStream(outputPath)
+    
+    stream.pipe(writeStream)
+    
+    writeStream.on('finish', () => {
+      resolve()
+    })
+    
+    writeStream.on('error', (err) => {
+      reject(err)
+    })
+    
+    stream.on('error', (err) => {
+      reject(err)
+    })
+  })
 }
 
 function formatDuration(seconds) {

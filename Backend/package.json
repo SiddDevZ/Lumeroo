@@ -11,6 +11,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@distube/ytdl-core": "^4.16.12",
     "@hono/node-server": "^1.14.1",
     "axios": "^1.9.0",
     "bcrypt": "^6.0.0",
@@ -27,7 +28,6 @@
     "nodemailer": "^7.0.3",
     "nodemon": "^3.1.10",
     "sharp": "^0.34.2",
-    "url": "^0.11.4",
-    "yt-dlp-wrap": "^2.3.12"
+    "url": "^0.11.4"
   }
 }
