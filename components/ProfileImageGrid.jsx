@@ -203,11 +203,6 @@ const ProfileImageGrid = ({ images, isOwnProfile, onImageDelete }) => {
           />
         ))}
       </div>
-      <Toaster
-        theme="dark"
-        position="top-right"
-        richColors
-      />
     </>
   );
 };

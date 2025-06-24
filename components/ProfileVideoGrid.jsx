@@ -240,11 +240,6 @@ const ProfileVideoGrid = ({ videos, isOwnProfile, onVideoDelete }) => {
           />
         ))}
       </div>
-      <Toaster
-        theme="dark"
-        position="top-right"
-        richColors
-      />
     </>
   );
 };
