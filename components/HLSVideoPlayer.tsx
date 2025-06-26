@@ -43,6 +43,7 @@ const HLSVideoPlayer: React.FC<HLSVideoPlayerProps> = ({
   const [isDraggingVolume, setIsDraggingVolume] = useState(false);
   const [dragTime, setDragTime] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [buffered, setBuffered] = useState(0);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -206,12 +207,19 @@ const HLSVideoPlayer: React.FC<HLSVideoPlayerProps> = ({
       setVolume(video.volume);
       setIsMuted(video.muted);
     };
+    const handleProgress = () => {
+      if (video.buffered.length > 0 && duration > 0) {
+        const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+        setBuffered((bufferedEnd / duration) * 100);
+      }
+    };
 
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('durationchange', handleDurationChange);
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
     video.addEventListener('volumechange', handleVolumeChange);
+    video.addEventListener('progress', handleProgress);
 
     return () => {
       video.removeEventListener('timeupdate', handleTimeUpdate);
@@ -219,8 +227,9 @@ const HLSVideoPlayer: React.FC<HLSVideoPlayerProps> = ({
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('volumechange', handleVolumeChange);
+      video.removeEventListener('progress', handleProgress);
     };
-  }, [isVideoReady, isDraggingProgress]);
+  }, [isVideoReady, isDraggingProgress, duration]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -460,6 +469,10 @@ const HLSVideoPlayer: React.FC<HLSVideoPlayerProps> = ({
               onClick={handleProgressClick}
             >
               <div className={`w-full bg-white/20 rounded-full relative transition-all duration-150 ${isFullscreen ? 'h-1.5' : 'h-0.5 sm:h-1'}`}>
+                <div 
+                  className="h-full bg-white/15 rounded-full absolute"
+                  style={{ width: `${buffered}%` }}
+                />
                 <div 
                   className={`h-full bg-[#d6d203] rounded-full relative`}
                   style={{ width: `${duration ? ((isDraggingProgress ? dragTime : currentTime) / duration) * 100 : 0}%` }}

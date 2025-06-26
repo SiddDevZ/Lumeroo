@@ -1572,11 +1572,11 @@ const WatchPageContent = () => {
 
       <div className="max-w-[80rem] mx-auto px-0 pt-2 pb-8">
 
-        <div className="w-full px-4 lg:px-0 mb-3">
-          <div className="w-full h-28 border-2 border-dashed border-[#3a3a3a] rounded-xl bg-[#0f0f0f]/50 flex items-center justify-center transition-all duration-300 hover:border-[#4a4a4a] hover:bg-[#111]/60">
+        <div className="w-full px-4 lg:px-0 mb-5">
+          <div className="w-full sm:h-28 h-22 border-2 border-dashed border-[#3a3a3a] rounded-xl bg-[#0f0f0f]/50 flex items-center justify-center transition-all duration-300 hover:border-[#4a4a4a] hover:bg-[#111]/60">
             <div className="text-center">
-              <div className="text-[#666] text-lg font-medium mb-1">Advertisement Space</div>
-              <div className="text-[#888] text-sm">banner ads will appear here</div>
+              <div className="text-[#666] sm:text-lg font-medium sm:mb-1 mb-0.5">Advertisement Space</div>
+              <div className="text-[#888] sm:text-sm text-xs">banner ads would appear here</div>
             </div>
           </div>
         </div>
@@ -1725,7 +1725,7 @@ const WatchPageContent = () => {
           </div>
         )}
 
-        <div className="mb-4 bg-[#121212] rounded-lg p-4 md:p-6">
+        <div className="mb-4 bg-[#1212127b] border border-[#1c1c1c] rounded-lg p-4 md:p-6">
           <h1 className="text-[#ebebeb] font-roboto mb-1 md:mb-0 text-xl leading-tight md:leading-normal  md:text-2xl font-bold">
             {video.title}
           </h1>
@@ -1888,7 +1888,7 @@ const WatchPageContent = () => {
             </div>
           </div>
 
-          <div className="md:hidden flex items-center gap-3 bg-[#1a1a1a] p-3 rounded-lg mb-5">
+          <div className="md:hidden flex items-center gap-3 bg-[#1a1a1a5c] p-3 rounded-lg mb-5">
             <div 
               className="relative w-10 h-10 bg-[#252525] rounded-full overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
               onClick={handleUploaderClick}
@@ -1951,10 +1951,10 @@ const WatchPageContent = () => {
         </div>
 
         <div className="w-full px-4 lg:px-0 mb-5">
-          <div className="w-full h-28 border-2 border-dashed border-[#3a3a3a] rounded-xl bg-[#0f0f0f]/50 flex items-center justify-center transition-all duration-300 hover:border-[#4a4a4a] hover:bg-[#111]/60">
+          <div className="w-full sm:h-28 h-22 border-2 border-dashed border-[#3a3a3a] rounded-xl bg-[#0f0f0f]/50 flex items-center justify-center transition-all duration-300 hover:border-[#4a4a4a] hover:bg-[#111]/60">
             <div className="text-center">
-              <div className="text-[#666] text-lg font-medium mb-1">Advertisement Space</div>
-              <div className="text-[#888] text-sm">banner ads will appear here</div>
+              <div className="text-[#666] sm:text-lg font-medium sm:mb-1 mb-0.5">Advertisement Space</div>
+              <div className="text-[#888] sm:text-sm text-xs">banner ads would appear here</div>
             </div>
           </div>
         </div>

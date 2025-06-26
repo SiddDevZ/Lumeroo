@@ -74,7 +74,7 @@ const UploadModal = ({ setShowUploadModal, user }) => {
         <div className="flex justify-between items-center px-6 py-4 border-b border-[#2a2a2a]">
           <div className="flex items-center space-x-2.5">
             <Image
-              src="/logo2.webp"
+              src="/logo.webp"
               alt="Lumeroo Logo"
               width={30}
               height={30}

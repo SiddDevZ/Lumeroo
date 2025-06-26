@@ -387,7 +387,7 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
             <div className="flex items-center space-x-3 sm:space-x-4">
               <button 
                 onClick={handleUploadNavigation}
-                className="flex items-center cursor-pointer justify-center bg-[#d6d203c9] hover:scale-[1.03] duration-200 transition-all ease-out text-[#202020] group rounded-full p-2 sm:py-2 sm:px-4"
+                className="flex items-center cursor-pointer justify-center bg-[#d6d203c9] hover:scale-[1.03] text-[#202020] transition-all duration-200 ease-out group rounded-full p-2 sm:py-2 sm:px-4"
               >
                 <RiVideoUploadFill size={20} className="" />
                 <span className="font-pop font-semibold hidden sm:ml-2 md:inline">
@@ -399,7 +399,7 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
                 className="cursor-pointer" 
                 onClick={handleProfileNavigation}
               >
-                <div className={`group hover:scale-[1.05] transition-scale bg-[#181818] ${user && (user.avatar || avatarUrl) ? "border-2 border-[#323232]" : "p-[0.55rem] border-2 border-[#595959]"} rounded-full ease-out duration-200 flex items-center justify-center overflow-hidden`}>
+                <div className={`group hover:scale-[1.05] transition-transform duration-150 ease-out bg-[#181818] ${user && (user.avatar || avatarUrl) ? "border-2 border-[#323232]" : "p-[0.55rem] border-2 border-[#595959]"} rounded-full flex items-center justify-center overflow-hidden`}>
                   {user && (user.avatar || avatarUrl) ? (
                     <Image
                       src={user.avatar ? (config.stream + user.avatar) : avatarUrl}
