@@ -7,14 +7,17 @@ import User from '../models/User.js';
 import { config } from "dotenv";
 import jwt from 'jsonwebtoken';
 import sharp from 'sharp';
-import ffmpegPath from 'ffmpeg-static';
-import ffprobePath from 'ffprobe-static';
+import ffmpegStatic from 'ffmpeg-static';
+import ffprobeStatic from 'ffprobe-static';
 
 config();
 
 const router = new Hono();
 const JWT_SECRET = process.env.JWT_SECRET;
 const STREAM_BASE_DIR = '/var/www/stream';
+
+const ffmpegPath = process.env.FFMPEG_PATH || ffmpegStatic;
+const ffprobePath = process.env.FFPROBE_PATH || ffprobeStatic.path;
 
 const verifyTokenAndGetUserId = (token) => {
   if (!token) {
@@ -53,7 +56,10 @@ const ensureDirectoryExists = async (dirPath) => {
 
 const runFFmpegCommand = (args) => {
   return new Promise((resolve, reject) => {
-        const ffmpeg = spawn(ffmpegPath, args);
+    console.log(`Using FFmpeg path: ${ffmpegPath}`);
+    console.log(`Running FFmpeg command with args:`, args);
+    
+    const ffmpeg = spawn(ffmpegPath, args);
     let stderr = '';
 
     ffmpeg.stderr.on('data', (data) => {
@@ -64,11 +70,13 @@ const runFFmpegCommand = (args) => {
       if (code === 0) {
         resolve();
       } else {
+        console.error(`FFmpeg failed with code ${code}: ${stderr}`);
         reject(new Error(`FFmpeg failed with code ${code}: ${stderr}`));
       }
     });
 
     ffmpeg.on('error', (error) => {
+      console.error(`FFmpeg spawn error:`, error);
       reject(new Error(`FFmpeg spawn error: ${error.message}`));
     });
   });
@@ -114,6 +122,9 @@ router.post('/', async (c) => {
     const videoFile = formData.get('videoFile');
     const thumbnailFile = formData.get('thumbnailFile');
     const clientDuration = formData.get('duration');
+
+    const parsedClientDuration = clientDuration ? parseFloat(clientDuration) : null;
+    // console.log(`Client provided duration: ${parsedClientDuration}`);
 
     if (!(videoFile instanceof File) || videoFile.size === 0) {
       return c.json({ success: false, message: 'Video file is required and must be a valid file.' }, 400);
@@ -319,7 +330,11 @@ router.post('/', async (c) => {
       slug: slug,
       videoUrl: `/stream/${slug}/video.m3u8`,
       thumbnail: `/stream/${slug}/thumb.webp`,
-      duration: clientDuration ? Math.round(Number(clientDuration)) : -1,
+      duration: parsedClientDuration && !isNaN(parsedClientDuration) && parsedClientDuration > 0 
+        ? Math.round(parsedClientDuration) 
+        : (videoDuration && !isNaN(videoDuration) && videoDuration > 0 
+          ? Math.round(videoDuration) 
+          : -1),
       uploader: user._id,
       tags: tags,
       isProcessing: false
