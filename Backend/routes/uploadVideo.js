@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { spawn } from 'child_process';
-import { promises as fs } from 'fs';
+import { promises as fs, existsSync, accessSync, constants } from 'fs';
 import path from 'path';
 import Video, { generateSlug, generateRandomSuffix } from '../models/Video.js';
 import User from '../models/User.js';
@@ -9,7 +9,6 @@ import jwt from 'jsonwebtoken';
 import sharp from 'sharp';
 import ffmpegStatic from 'ffmpeg-static';
 import ffprobeStatic from 'ffprobe-static';
-import { existsSync } from 'fs';
 
 config();
 
@@ -19,7 +18,7 @@ const STREAM_BASE_DIR = '/var/www/stream';
 
 const isExecutable = (p) => {
   try {
-    fs.accessSync(p, fs.constants.X_OK);
+    accessSync(p, constants.X_OK);
     return true;
   } catch {
     return false;
@@ -36,7 +35,7 @@ const findFFmpegPath = () => {
   ];
 
   for (const p of candidates) {
-    if (p && fs.existsSync(p) && isExecutable(p)) {
+    if (p && existsSync(p) && isExecutable(p)) {
       console.log('Found FFmpeg at:', p);
       return p;
     }
