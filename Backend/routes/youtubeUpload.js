@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import fetch from 'node-fetch'
-import config from '../../config.json' assert { type: 'json' }
+import config from '../../config.json' with { type: 'json' }
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'

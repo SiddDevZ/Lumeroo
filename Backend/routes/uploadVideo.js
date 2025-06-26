@@ -147,6 +147,7 @@ router.post('/', async (c) => {
   let workDir = null;
   let inputPath = null;
   let thumbPngPath = null;
+  let videoDuration = null; // Declare videoDuration at function scope
 
   try {
     if (!JWT_SECRET) {
@@ -251,7 +252,6 @@ router.post('/', async (c) => {
         inputPath
       ];
       
-      let videoDuration;
       try {
         const durationResult = await new Promise((resolve, reject) => {
           const ffprobe = spawn(ffprobePath, getDurationArgs);
