@@ -6,6 +6,7 @@ import Video, { generateSlug, generateRandomSuffix } from '../models/Video.js';
 import User from '../models/User.js';
 import { config } from "dotenv";
 import jwt from 'jsonwebtoken';
+import fs from 'fs';
 import sharp from 'sharp';
 import ffmpegStatic from 'ffmpeg-static';
 import ffprobeStatic from 'ffprobe-static';
@@ -17,24 +18,32 @@ const router = new Hono();
 const JWT_SECRET = process.env.JWT_SECRET;
 const STREAM_BASE_DIR = '/var/www/stream';
 
+const isExecutable = (p) => {
+  try {
+    fs.accessSync(p, fs.constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const findFFmpegPath = () => {
-  const staticPath = typeof ffmpegStatic === 'string' ? ffmpegStatic : ffmpegStatic?.path;
-  const paths = [
+  const candidates = [
     process.env.FFMPEG_PATH,
-    staticPath,
+    typeof ffmpegStatic === 'string' ? ffmpegStatic : ffmpegStatic?.path,
     '/usr/bin/ffmpeg',
     '/usr/local/bin/ffmpeg',
-    'C:\\ffmpeg\\bin\\ffmpeg.exe'
+    'ffmpeg'
   ];
 
-  for (const p of paths) {
-    if (p && existsSync(p)) {
-      console.log(`Found FFmpeg at: ${p}`);
+  for (const p of candidates) {
+    if (p && fs.existsSync(p) && isExecutable(p)) {
+      console.log('Found FFmpeg at:', p);
       return p;
     }
   }
 
-  console.warn('FFmpeg not found in known locations, falling back to system PATH');
+  console.warn('FFmpeg not found, falling back to default system PATH');
   return 'ffmpeg';
 };
 
