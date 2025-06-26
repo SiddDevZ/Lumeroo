@@ -18,46 +18,44 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const STREAM_BASE_DIR = '/var/www/stream';
 
 const findFFmpegPath = () => {
+  const staticPath = typeof ffmpegStatic === 'string' ? ffmpegStatic : ffmpegStatic?.path;
   const paths = [
-    // Check environment variable first
     process.env.FFMPEG_PATH,
-    // Then try the ffmpeg-static package
-    ffmpegStatic,
-    // Common system locations
+    staticPath,
     '/usr/bin/ffmpeg',
     '/usr/local/bin/ffmpeg',
-    // Windows paths for local development
     'C:\\ffmpeg\\bin\\ffmpeg.exe'
   ];
-  
-  for (const path of paths) {
-    if (path && existsSync(path)) {
-      console.log(`Found FFmpeg at: ${path}`);
-      return path;
+
+  for (const p of paths) {
+    if (p && existsSync(p)) {
+      console.log(`Found FFmpeg at: ${p}`);
+      return p;
     }
   }
-  
-  // Last resort - just use the command name and hope it's in PATH
+
   console.warn('FFmpeg not found in known locations, falling back to system PATH');
   return 'ffmpeg';
 };
 
+
 const findFFprobePath = () => {
+  const staticPath = typeof ffprobeStatic?.path === 'string' ? ffprobeStatic.path : null;
   const paths = [
     process.env.FFPROBE_PATH,
-    ffprobeStatic?.path,
+    staticPath,
     '/usr/bin/ffprobe',
     '/usr/local/bin/ffprobe',
     'C:\\ffmpeg\\bin\\ffprobe.exe'
   ];
-  
-  for (const path of paths) {
-    if (path && existsSync(path)) {
-      console.log(`Found FFprobe at: ${path}`);
-      return path;
+
+  for (const p of paths) {
+    if (p && existsSync(p)) {
+      console.log(`Found FFprobe at: ${p}`);
+      return p;
     }
   }
-  
+
   console.warn('FFprobe not found in known locations, falling back to system PATH');
   return 'ffprobe';
 };
@@ -105,24 +103,11 @@ const runFFmpegCommand = (args) => {
     console.log(`Using FFmpeg path: ${ffmpegPath}`);
     console.log(`Running FFmpeg command with args:`, args);
     
-    let ffmpeg;
-    try {
-      ffmpeg = spawn(ffmpegPath, args);
-    } catch (error) {
-      console.error('Failed to spawn FFmpeg:', error);
-      return reject(new Error(`Failed to spawn FFmpeg: ${error.message}`));
-    }
-    
-    if (!ffmpeg || !ffmpeg.stderr) {
-      return reject(new Error('FFmpeg process failed to start properly'));
-    }
-    
+    const ffmpeg = spawn(ffmpegPath, args);
     let stderr = '';
 
     ffmpeg.stderr.on('data', (data) => {
       stderr += data.toString();
-      // Log FFmpeg progress (optional)
-      // console.log(`FFmpeg progress: ${data.toString().trim()}`);
     });
 
     ffmpeg.on('close', (code) => {
@@ -155,7 +140,6 @@ router.post('/', async (c) => {
   let workDir = null;
   let inputPath = null;
   let thumbPngPath = null;
-  let videoDuration = null; // Declare videoDuration at function scope
 
   try {
     if (!JWT_SECRET) {
