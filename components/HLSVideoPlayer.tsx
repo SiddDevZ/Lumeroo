@@ -470,7 +470,7 @@ const HLSVideoPlayer: React.FC<HLSVideoPlayerProps> = ({
             >
               <div className={`w-full bg-white/20 rounded-full relative transition-all duration-150 ${isFullscreen ? 'h-1.5' : 'h-0.5 sm:h-1'}`}>
                 <div 
-                  className="h-full bg-white/15 rounded-full absolute"
+                  className="h-full bg-white/25 rounded-full absolute"
                   style={{ width: `${buffered}%` }}
                 />
                 <div 

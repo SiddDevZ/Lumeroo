@@ -75,7 +75,7 @@ const YouTubeDownloader = () => {
     setShowUrlHelp(false);
 
     try {
-      const response = await fetch(`${config.url}/api/youtube-downloader/init`, {
+      const response = await fetch(`http://localhost:3002/api/youtube-downloader/init`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -109,7 +109,7 @@ const YouTubeDownloader = () => {
     setIsDownloading(true);
 
     try {
-      const response = await fetch(`${config.url}/api/youtube-downloader/download`, {
+      const response = await fetch(`http://localhost:3002/api/youtube-downloader/download`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -175,7 +175,7 @@ const YouTubeDownloader = () => {
       formData.append('token', localStorage.getItem('token'));
 
       // Use the new backend route that handles everything
-      const uploadResponse = await fetch(`${config.url}/api/youtube-upload`, {
+      const uploadResponse = await fetch(`http://localhost:3002/api/youtube-upload`, {
         method: 'POST',
         body: formData,
       });
@@ -184,6 +184,11 @@ const YouTubeDownloader = () => {
 
       if (uploadData.success) {
         toast.success("Video uploaded to Lumeroo successfully!");
+
+        setVideoUrl("");
+        setVideoInfo(null);
+        setSelectedQuality("");
+        setShowUrlHelp(false);
       } else {
         throw new Error(uploadData.message || 'Upload to Lumeroo failed');
       }

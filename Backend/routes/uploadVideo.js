@@ -183,10 +183,10 @@ router.post('/', async (c) => {
     } else {
 
       const getDurationArgs = [
-        '-i', inputPath,
-        '-show_entries', 'format=duration',
         '-v', 'quiet',
-        '-of', 'csv=p=0'
+        '-show_entries', 'format=duration',
+        '-of', 'default=noprint_wrappers=1:nokey=1',
+        inputPath
       ];
       
       let videoDuration;
@@ -194,16 +194,22 @@ router.post('/', async (c) => {
         const durationResult = await new Promise((resolve, reject) => {
           const ffprobe = spawn(ffprobePath, getDurationArgs);
           let stdout = '';
+          let stderr = '';
           
           ffprobe.stdout.on('data', (data) => {
             stdout += data.toString();
+          });
+          
+          ffprobe.stderr.on('data', (data) => {
+            stderr += data.toString();
           });
           
           ffprobe.on('close', (code) => {
             if (code === 0) {
               resolve(stdout.trim());
             } else {
-              reject(new Error(`FFprobe failed with code ${code}`));
+              console.error(`FFprobe stderr: ${stderr}`);
+              reject(new Error(`FFprobe failed with code ${code}: ${stderr}`));
             }
           });
           
@@ -213,8 +219,51 @@ router.post('/', async (c) => {
         });
         
         videoDuration = parseFloat(durationResult);
+
+        if (isNaN(videoDuration) || videoDuration <= 0) {
+          console.warn('Primary duration method failed, trying alternative...');
+          
+          const altDurationArgs = [
+            '-v', 'quiet',
+            '-show_entries', 'stream=duration',
+            '-select_streams', 'v:0',
+            '-of', 'default=noprint_wrappers=1:nokey=1',
+            inputPath
+          ];
+          
+          const altResult = await new Promise((resolve, reject) => {
+            const ffprobe = spawn(ffprobePath, altDurationArgs);
+            let stdout = '';
+            
+            ffprobe.stdout.on('data', (data) => {
+              stdout += data.toString();
+            });
+            
+            ffprobe.on('close', (code) => {
+              if (code === 0) {
+                resolve(stdout.trim());
+              } else {
+                reject(new Error(`Alternative FFprobe failed with code ${code}`));
+              }
+            });
+            
+            ffprobe.on('error', (error) => {
+              reject(new Error(`Alternative FFprobe spawn error: ${error.message}`));
+            });
+          });
+          
+          videoDuration = parseFloat(altResult);
+        }
+        
+        console.log(`Extracted video duration: ${videoDuration} seconds`);
+        
       } catch (error) {
         console.warn(`Could not get video duration, using fallback: ${error.message}`);
+        videoDuration = 30;
+      }
+
+      if (isNaN(videoDuration) || videoDuration <= 0) {
+        console.warn('Invalid duration detected, using default');
         videoDuration = 30;
       }
 

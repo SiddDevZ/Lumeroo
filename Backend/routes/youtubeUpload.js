@@ -86,7 +86,7 @@ const downloadVideoToFile = async (url, quality) => {
     const timestamp = Date.now()
     const tempFilePath = path.join(tempDir, `temp_video_${timestamp}.mp4`)
 
-    const response = await fetch(`${config.url}/api/youtube-downloader/download`, {
+    const response = await fetch(`http://localhost:3002/api/youtube-downloader/download`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -99,7 +99,8 @@ const downloadVideoToFile = async (url, quality) => {
         throw new Error(errorData.message || 'Failed to download video');
     }
 
-    const buffer = await response.buffer();
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
     fs.writeFileSync(tempFilePath, buffer);
 
     return tempFilePath;
@@ -140,7 +141,7 @@ const uploadToLumeroo = async (tempVideoPath, title, description, token) => {
 };
 
 const getVideoInfo = async (url) => {
-    const response = await fetch(`${config.url}/api/youtube-downloader/init`, {
+    const response = await fetch(`http://localhost:3002/api/youtube-downloader/init`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
