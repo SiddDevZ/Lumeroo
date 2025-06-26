@@ -155,6 +155,7 @@ router.post('/', async (c) => {
   let workDir = null;
   let inputPath = null;
   let thumbPngPath = null;
+  let videoDuration = null; // Declare videoDuration at function scope
 
   try {
     if (!JWT_SECRET) {
