@@ -6,7 +6,6 @@ import Video, { generateSlug, generateRandomSuffix } from '../models/Video.js';
 import User from '../models/User.js';
 import { config } from "dotenv";
 import jwt from 'jsonwebtoken';
-import fs from 'fs';
 import sharp from 'sharp';
 import ffmpegStatic from 'ffmpeg-static';
 import ffprobeStatic from 'ffprobe-static';
