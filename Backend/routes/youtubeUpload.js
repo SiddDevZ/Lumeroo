@@ -86,38 +86,104 @@ const downloadVideoToFile = async (url, quality) => {
     const timestamp = Date.now()
     const tempFilePath = path.join(tempDir, `temp_video_${timestamp}.mp4`)
 
-    const response = await fetch(`http://localhost:3002/api/youtube-downloader/download`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url, quality }),
-    });
+    try {
+        const response = await fetch(`http://localhost:3002/api/youtube-downloader/download`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ url, quality }),
+        });
 
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to download video');
+        if (!response.ok) {
+            // Check if response is JSON or HTML error page
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to download video');
+            } else {
+                // Response is likely an HTML error page
+                const errorText = await response.text();
+                console.error('Non-JSON error response:', errorText);
+                throw new Error(`Download failed with status ${response.status}: ${response.statusText}`);
+            }
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        
+        if (buffer.length === 0) {
+            throw new Error('Downloaded video file is empty');
+        }
+        
+        fs.writeFileSync(tempFilePath, buffer);
+        
+        // Verify the file was written successfully
+        if (!fs.existsSync(tempFilePath) || fs.statSync(tempFilePath).size === 0) {
+            throw new Error('Failed to save video file');
+        }
+
+        return tempFilePath;
+    } catch (error) {
+        console.error('Error in downloadVideoToFile:', error);
+        throw error;
     }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    fs.writeFileSync(tempFilePath, buffer);
-
-    return tempFilePath;
 };
 
-const uploadToLumeroo = async (tempVideoPath, title, description, token) => {
+const downloadThumbnail = async (thumbnailUrl, title) => {
+    if (!thumbnailUrl) {
+        return null;
+    }
+
+    const tempDir = path.join(__dirname, '../temp');
+    if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const timestamp = Date.now();
+    const cleanTitle = title.replace(/[^\w\s-]/g, '').replace(/\s+/g, '_').substring(0, 50);
+    const thumbnailPath = path.join(tempDir, `thumb_${cleanTitle}_${timestamp}.jpg`);
+
+    try {
+        const response = await fetch(thumbnailUrl);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch thumbnail: ${response.statusText}`);
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        fs.writeFileSync(thumbnailPath, buffer);
+
+        return thumbnailPath;
+    } catch (error) {
+        console.error('Error downloading thumbnail:', error);
+        return null;
+    }
+};
+
+const uploadToLumeroo = async (tempVideoPath, title, description, token, thumbnailPath = null) => {
     const formData = new FormData();
     formData.append('token', token);
     formData.append('title', title);
     formData.append('description', description);
 
     const videoStream = fs.createReadStream(tempVideoPath);
-    const fileName = `${title.replace(/[<>:"/\\|?*]/g, '_')}.mp4`;
+    // Sanitize filename more aggressively to prevent ByteString conversion errors
+    const cleanTitle = title.replace(/[^\w\s-]/g, '').replace(/\s+/g, '_').substring(0, 50);
+    const fileName = `${cleanTitle}.mp4`;
     formData.append('videoFile', videoStream, {
         filename: fileName,
         contentType: 'video/mp4'
     });
+
+    if (thumbnailPath && fs.existsSync(thumbnailPath)) {
+        const thumbnailStream = fs.createReadStream(thumbnailPath);
+        const thumbnailFileName = `${cleanTitle}_thumb.jpg`;
+        formData.append('thumbnailFile', thumbnailStream, {
+            filename: thumbnailFileName,
+            contentType: 'image/jpeg'
+        });
+    }
 
     const uploadResponse = await fetch(`${config.url}/api/uploadVideo`, {
         method: 'POST',
@@ -133,8 +199,11 @@ const uploadToLumeroo = async (tempVideoPath, title, description, token) => {
 
     try {
         fs.unlinkSync(tempVideoPath);
+        if (thumbnailPath && fs.existsSync(thumbnailPath)) {
+            fs.unlinkSync(thumbnailPath);
+        }
     } catch (error) {
-        console.warn('Failed to cleanup temp file:', error.message);
+        console.warn('Failed to cleanup temp files:', error.message);
     }
 
     return uploadData;
@@ -209,15 +278,16 @@ router.post('/', async (c) => {
         const tempVideoPath = await downloadVideoToFile(url, quality);
 
         const aiDescription = await generateAIDescription(videoInfo.title, videoInfo.description);
-        // console.log('AI Description generated:', aiDescription);
+        const thumbnailPath = await downloadThumbnail(videoInfo.thumbnail, videoInfo.title);
 
-        const uploadResult = await uploadToLumeroo(tempVideoPath, videoInfo.title, aiDescription, token);
+        const uploadResult = await uploadToLumeroo(tempVideoPath, videoInfo.title, aiDescription, token, thumbnailPath);
 
         return c.json({
             success: true,
             message: 'Video uploaded to Lumeroo successfully!',
             video: uploadResult.video,
-            aiDescription: aiDescription
+            aiDescription: aiDescription,
+            thumbnailDownloaded: !!thumbnailPath
         });
 
     } catch (error) {

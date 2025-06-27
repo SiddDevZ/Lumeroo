@@ -112,7 +112,11 @@ router.post('/download', async (c) => {
     }
 
     const info = await ytdl.getInfo(url)
-    const title = info.videoDetails.title.replace(/[<>:"/\\|?*]/g, '_')
+    const title = info.videoDetails.title
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, '_')
+      .substring(0, 50)
+    
     const outputFolder = path.join(__dirname, '../temp')
     const outputPath = path.join(outputFolder, `${title}_${quality}_${Date.now()}.mp4`)
 
@@ -145,6 +149,7 @@ router.post('/download', async (c) => {
     }
 
     const fileBuffer = fs.readFileSync(outputPath)
+    // Use sanitized filename for download
     const fileName = `${title}_${quality}.mp4`
 
     setTimeout(() => {

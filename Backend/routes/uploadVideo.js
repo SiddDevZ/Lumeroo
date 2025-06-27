@@ -147,7 +147,7 @@ router.post('/', async (c) => {
   let workDir = null;
   let inputPath = null;
   let thumbPngPath = null;
-  let videoDuration = null; // Declare videoDuration at function scope
+  let videoDuration = null;
 
   try {
     if (!JWT_SECRET) {
@@ -223,6 +223,49 @@ router.post('/', async (c) => {
     const videoBuffer = await videoFile.arrayBuffer();
     await fs.writeFile(inputPath, Buffer.from(videoBuffer));
 
+    // --- MOVED DURATION CALCULATION HERE ---
+    // This now runs for ALL uploads, before HLS conversion.
+    const getDurationArgs = [
+      '-v', 'error',
+      '-show_entries', 'format=duration',
+      '-of', 'default=noprint_wrappers=1:nokey=1',
+      inputPath
+    ];
+    
+    try {
+      const durationResult = await new Promise((resolve, reject) => {
+        const ffprobe = spawn(ffprobePath, getDurationArgs);
+        let stdout = '';
+        let stderr = '';
+        
+        ffprobe.stdout.on('data', (data) => { stdout += data.toString(); });
+        ffprobe.stderr.on('data', (data) => { stderr += data.toString(); });
+        
+        ffprobe.on('close', (code) => {
+          if (code === 0 && stdout.trim()) {
+            resolve(stdout.trim());
+          } else {
+            reject(new Error(`FFprobe failed or returned empty output. Code: ${code}, Stderr: ${stderr}`));
+          }
+        });
+        
+        ffprobe.on('error', (error) => reject(error));
+      });
+      
+      videoDuration = parseFloat(durationResult);
+      console.log(`Extracted video duration: ${videoDuration} seconds`);
+      
+    } catch (error) {
+      console.warn(`Could not get video duration, using client-provided or fallback: ${error.message}`);
+      videoDuration = null; // Ensure it's null on failure
+    }
+
+    if (isNaN(videoDuration) || videoDuration <= 0) {
+      console.warn('Invalid duration detected, will use client-provided or fallback.');
+      videoDuration = null;
+    }
+    // --- END OF MOVED LOGIC ---
+
     const hlsArgs = [
       '-i', inputPath,
       '-codec:', 'copy',
@@ -244,93 +287,9 @@ router.post('/', async (c) => {
         .toFile(thumbWebpPath);
         
     } else {
-
-      const getDurationArgs = [
-        '-v', 'quiet',
-        '-show_entries', 'format=duration',
-        '-of', 'default=noprint_wrappers=1:nokey=1',
-        inputPath
-      ];
-      
-      try {
-        const durationResult = await new Promise((resolve, reject) => {
-          const ffprobe = spawn(ffprobePath, getDurationArgs);
-          let stdout = '';
-          let stderr = '';
-          
-          ffprobe.stdout.on('data', (data) => {
-            stdout += data.toString();
-          });
-          
-          ffprobe.stderr.on('data', (data) => {
-            stderr += data.toString();
-          });
-          
-          ffprobe.on('close', (code) => {
-            if (code === 0) {
-              resolve(stdout.trim());
-            } else {
-              console.error(`FFprobe stderr: ${stderr}`);
-              reject(new Error(`FFprobe failed with code ${code}: ${stderr}`));
-            }
-          });
-          
-          ffprobe.on('error', (error) => {
-            reject(new Error(`FFprobe spawn error: ${error.message}`));
-          });
-        });
-        
-        videoDuration = parseFloat(durationResult);
-
-        if (isNaN(videoDuration) || videoDuration <= 0) {
-          console.warn('Primary duration method failed, trying alternative...');
-          
-          const altDurationArgs = [
-            '-v', 'quiet',
-            '-show_entries', 'stream=duration',
-            '-select_streams', 'v:0',
-            '-of', 'default=noprint_wrappers=1:nokey=1',
-            inputPath
-          ];
-          
-          const altResult = await new Promise((resolve, reject) => {
-            const ffprobe = spawn(ffprobePath, altDurationArgs);
-            let stdout = '';
-            
-            ffprobe.stdout.on('data', (data) => {
-              stdout += data.toString();
-            });
-            
-            ffprobe.on('close', (code) => {
-              if (code === 0) {
-                resolve(stdout.trim());
-              } else {
-                reject(new Error(`Alternative FFprobe failed with code ${code}`));
-              }
-            });
-            
-            ffprobe.on('error', (error) => {
-              reject(new Error(`Alternative FFprobe spawn error: ${error.message}`));
-            });
-          });
-          
-          videoDuration = parseFloat(altResult);
-        }
-        
-        console.log(`Extracted video duration: ${videoDuration} seconds`);
-        
-      } catch (error) {
-        console.warn(`Could not get video duration, using fallback: ${error.message}`);
-        videoDuration = 30;
-      }
-
-      if (isNaN(videoDuration) || videoDuration <= 0) {
-        console.warn('Invalid duration detected, using default');
-        videoDuration = 30;
-      }
-
-      const minTime = Math.max(1, videoDuration * 0.1);
-      const maxTime = Math.max(minTime + 1, videoDuration * 0.9);
+      // THIS BLOCK NO LONGER CALCULATES DURATION
+      const minTime = Math.max(1, (videoDuration || 30) * 0.1);
+      const maxTime = Math.max(minTime + 1, (videoDuration || 30) * 0.9);
       const randomTime = Math.random() * (maxTime - minTime) + minTime;
 
       const thumbArgs = [
