@@ -239,7 +239,7 @@ const generateAIDescription = async (title, description) => {
 Title: "${title}"
 Original Description: "${description || ''}"
 
-The description should be engaging, descriptive, and suitable for a video platform. Do not include any links or URLs. Focus on describing what viewers can expect from the video. Make it concise and compelling. and keep it short`;
+The description should be engaging, descriptive, and suitable for a video platform. Do not include any links or URLs. There should be no markdown things in it and ONLY provide the description nothing else. Focus on describing what viewers can expect from the video. Make it concise and compelling. and keep it short`;
 
         const aiDescription = await aiGenerator.getResponse(
             "gpt-4o",
