@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
-import { spawn } from 'child_process';
-import { promises as fs, existsSync, accessSync, constants } from 'fs';
+import { spawn, execSync } from 'child_process';
+import { promises as fs, existsSync } from 'fs';
 import path from 'path';
 import Video, { generateSlug, generateRandomSuffix } from '../models/Video.js';
 import User from '../models/User.js';
@@ -16,59 +16,37 @@ const router = new Hono();
 const JWT_SECRET = process.env.JWT_SECRET;
 const STREAM_BASE_DIR = '/var/www/stream';
 
-const isExecutable = (p) => {
-  try {
-    accessSync(p, constants.X_OK);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-const findFFmpegPath = () => {
-  const candidates = [
-    process.env.FFMPEG_PATH,
-    typeof ffmpegStatic === 'string' ? ffmpegStatic : ffmpegStatic?.path,
-    '/usr/bin/ffmpeg',
-    '/usr/local/bin/ffmpeg',
-    'ffmpeg'
-  ];
-
-  for (const p of candidates) {
-    if (p && existsSync(p) && isExecutable(p)) {
-      console.log('Found FFmpeg at:', p);
-      return p;
+const findExecutable = (name) => {
+  // 1. Use 'which' command on non-Windows platforms. It's the most reliable.
+  if (process.platform !== 'win32') {
+    try {
+      // execSync will throw if the command is not found.
+      const systemPath = execSync(`which ${name}`, { encoding: 'utf8' }).trim();
+      if (systemPath && existsSync(systemPath)) {
+        console.log(`Found ${name} in system PATH: ${systemPath}`);
+        return systemPath;
+      }
+    } catch (e) {
+      // Command not found, which is fine. We'll try the next method.
+      console.warn(`'${name}' not found in system PATH. Falling back to static package.`);
     }
   }
 
-  console.warn('FFmpeg not found, falling back to default system PATH');
-  return 'ffmpeg';
-};
-
-
-const findFFprobePath = () => {
-  const staticPath = typeof ffprobeStatic?.path === 'string' ? ffprobeStatic.path : null;
-  const paths = [
-    process.env.FFPROBE_PATH,
-    staticPath,
-    '/usr/bin/ffprobe',
-    '/usr/local/bin/ffprobe',
-    'C:\\ffmpeg\\bin\\ffprobe.exe'
-  ];
-
-  for (const p of paths) {
-    if (p && existsSync(p)) {
-      console.log(`Found FFprobe at: ${p}`);
-      return p;
-    }
+  // 2. Fallback to the -static package path (ideal for local Windows dev).
+  const staticPackage = name === 'ffmpeg' ? ffmpegStatic : ffprobeStatic?.path;
+  const staticPath = typeof staticPackage === 'string' ? staticPackage : null;
+  if (staticPath && existsSync(staticPath)) {
+    console.log(`Found ${name} via static package: ${staticPath}`);
+    return staticPath;
   }
 
-  console.warn('FFprobe not found in known locations, falling back to system PATH');
-  return 'ffprobe';
+  // 3. Last resort: return the name and hope it's in the PATH for spawn.
+  console.error(`Could not find a valid path for ${name}. Please install it globally or check your configuration.`);
+  return name;
 };
 
-const ffmpegPath = findFFmpegPath();
-const ffprobePath = findFFprobePath();
+const ffmpegPath = findExecutable('ffmpeg');
+const ffprobePath = findExecutable('ffprobe');
 
 const verifyTokenAndGetUserId = (token) => {
   if (!token) {
@@ -147,7 +125,7 @@ router.post('/', async (c) => {
   let workDir = null;
   let inputPath = null;
   let thumbPngPath = null;
-  let videoDuration = null;
+  let videoDuration = null; // Correctly scoped variable for duration
 
   try {
     if (!JWT_SECRET) {
@@ -223,48 +201,41 @@ router.post('/', async (c) => {
     const videoBuffer = await videoFile.arrayBuffer();
     await fs.writeFile(inputPath, Buffer.from(videoBuffer));
 
-    // --- MOVED DURATION CALCULATION HERE ---
-    // This now runs for ALL uploads, before HLS conversion.
-    const getDurationArgs = [
-      '-v', 'error',
-      '-show_entries', 'format=duration',
-      '-of', 'default=noprint_wrappers=1:nokey=1',
-      inputPath
-    ];
-    
+    // --- Correctly placed duration calculation ---
+    console.log('Attempting to extract video duration...');
     try {
-      const durationResult = await new Promise((resolve, reject) => {
-        const ffprobe = spawn(ffprobePath, getDurationArgs);
-        let stdout = '';
-        let stderr = '';
-        
-        ffprobe.stdout.on('data', (data) => { stdout += data.toString(); });
-        ffprobe.stderr.on('data', (data) => { stderr += data.toString(); });
-        
-        ffprobe.on('close', (code) => {
-          if (code === 0 && stdout.trim()) {
-            resolve(stdout.trim());
-          } else {
-            reject(new Error(`FFprobe failed or returned empty output. Code: ${code}, Stderr: ${stderr}`));
-          }
+        const getDurationArgs = [
+            '-v', 'error',
+            '-show_entries', 'format=duration',
+            '-of', 'default=noprint_wrappers=1:nokey=1',
+            inputPath
+        ];
+        const durationResult = await new Promise((resolve, reject) => {
+            const ffprobe = spawn(ffprobePath, getDurationArgs);
+            let stdout = '';
+            let stderr = '';
+            ffprobe.stdout.on('data', (data) => { stdout += data.toString(); });
+            ffprobe.stderr.on('data', (data) => { stderr += data.toString(); });
+            ffprobe.on('close', (code) => {
+                if (code === 0 && stdout.trim()) {
+                    resolve(stdout.trim());
+                } else {
+                    reject(new Error(`FFprobe failed. Code: ${code}. Stderr: ${stderr}`));
+                }
+            });
+            ffprobe.on('error', reject);
         });
-        
-        ffprobe.on('error', (error) => reject(error));
-      });
-      
-      videoDuration = parseFloat(durationResult);
-      console.log(`Extracted video duration: ${videoDuration} seconds`);
-      
+        const parsedDuration = parseFloat(durationResult);
+        if (!isNaN(parsedDuration) && parsedDuration > 0) {
+            videoDuration = parsedDuration;
+            console.log(`Successfully extracted video duration: ${videoDuration} seconds`);
+        } else {
+             console.warn('FFprobe returned invalid duration value.');
+        }
     } catch (error) {
-      console.warn(`Could not get video duration, using client-provided or fallback: ${error.message}`);
-      videoDuration = null; // Ensure it's null on failure
+        console.error(`Failed to extract video duration with ffprobe: ${error.message}`);
     }
-
-    if (isNaN(videoDuration) || videoDuration <= 0) {
-      console.warn('Invalid duration detected, will use client-provided or fallback.');
-      videoDuration = null;
-    }
-    // --- END OF MOVED LOGIC ---
+    // --- End of duration calculation ---
 
     const hlsArgs = [
       '-i', inputPath,
@@ -287,7 +258,10 @@ router.post('/', async (c) => {
         .toFile(thumbWebpPath);
         
     } else {
-      // THIS BLOCK NO LONGER CALCULATES DURATION
+      // This block NO LONGER calculates duration. It uses the value from above.
+      if (!videoDuration) {
+          console.warn('Cannot generate random thumbnail because duration is unknown. Using 1s fallback.');
+      }
       const minTime = Math.max(1, (videoDuration || 30) * 0.1);
       const maxTime = Math.max(minTime + 1, (videoDuration || 30) * 0.9);
       const randomTime = Math.random() * (maxTime - minTime) + minTime;
