@@ -76,12 +76,13 @@
 ## 🏗️ Architecture
 
 ### Video Streaming
-Lumeroo includes a **custom self-hosted video streaming solution** built into the backend. You can easily replace this with your preferred video hosting service (Cloudflare Stream, AWS S3, etc.) by modifying the upload and streaming endpoints.
+Lumeroo includes a **custom self-hosted video streaming solution** built into the backend with HLS (HTTP Live Streaming) support. You can easily replace this with your preferred video hosting service (Cloudflare Stream, AWS S3, etc.) by modifying the upload and streaming endpoints.
 
 ### Tech Stack
 - **Frontend**: Next.js 15, TypeScript, Tailwind CSS
 - **Backend**: Node.js, Hono framework, MongoDB
 - **Authentication**: JWT with email verification
+- **Video Streaming**: Custom HLS implementation with FFmpeg processing
 
 ### Project Structure
 
@@ -91,28 +92,45 @@ lumeroo/
 │   ├── page.tsx                  # Homepage
 │   ├── layout.tsx                # Root layout
 │   ├── globals.css               # Global styles
-│   ├── watch/                    # Content viewing page
+│   ├── watch/                    # Content viewing pages
+│   │   └── page.tsx              # Video/image viewer
 │   ├── upload/                   # Content upload
+│   │   └── page.jsx              # Upload interface
 │   ├── profile/                  # User profiles
+│   │   └── page.tsx              # Profile pages
 │   ├── search/                   # Search functionality
+│   │   └── page.tsx              # Search results
 │   ├── admin/                    # Admin dashboard
-│   └── api/                      # API routes
-│       └── userAvatar/           # User avatar generation
+│   │   └── page.tsx              # Admin interface
+│   ├── youtube-downloader/       # YouTube download feature
+│   │   └── page.jsx              # YouTube downloader
+│   ├── terms-of-service/         # Legal pages
+│   │   └── page.jsx              # Terms of Service
+│   ├── privacy-policy/           # Privacy policy
+│   │   └── page.jsx              # Privacy Policy
+│   └── dmca/                     # DMCA notice
+│       └── page.jsx              # DMCA compliance
 ├── components/                   # React components
 │   ├── NavBar.tsx                # Navigation component
+│   ├── Footer.jsx                # Footer component
 │   ├── VideoGrid.tsx             # Video grid display
-│   ├── authModel.tsx             # Authentication modal
-│   └── ...                       # Other UI components
+│   ├── ImageGrid.tsx             # Image grid display
+│   ├── HLSVideoPlayer.tsx        # Custom HLS video player
+│   ├── authModel.jsx             # Authentication modal
+│   ├── UploadModal.jsx           # Upload modal component
+│   ├── ProfileVideoGrid.jsx      # Profile video grid
+│   ├── ProfileImageGrid.jsx      # Profile image grid
+│   ├── SubscriptionGrid.jsx      # Subscription content grid
+│   └── Types.ts                  # TypeScript type definitions
 ├── hooks/                        # Custom React hooks
 │   └── useUserAvatar.js          # Avatar management hook
 ├── lib/                          # Utility libraries
 ├── public/                       # Static assets
-│   ├── favicon.ico               # Site favicon
-│   └── screenshot.png            # Project showcase image
 ├── Backend/                      # Server application
 │   ├── server.js                 # Main server entry point
 │   ├── package.json              # Backend dependencies
 │   ├── .env                      # Environment variables
+│   ├── temp/                     # Temporary file storage
 │   ├── models/                   # Database models
 │   │   ├── User.js               # User schema
 │   │   ├── Video.js              # Video schema
@@ -120,7 +138,7 @@ lumeroo/
 │   │   ├── Comment.js            # Comment schema
 │   │   ├── Report.js             # Report schema
 │   │   ├── PendingUser.js        # Email verification schema
-│   │   ├── PendingPassword.js    # Password reset schema
+│   │   ├── PendingPasswordReset.js # Password reset schema
 │   │   └── index.js              # Model exports
 │   ├── utils/                    # Utility functions
 │   │   └── emailUtils.js         # Email sending utilities
@@ -134,10 +152,10 @@ lumeroo/
 │       ├── resetDone.js          # Password reset completion
 │       ├── resend.js             # Resend verification email
 │       ├── googleAuth.js         # Google OAuth authentication
-│       ├── uploadVideo.js        # Video upload
-│       ├── uploadImage.js        # Image upload
+│       ├── uploadVideo.js        # Video upload & processing
+│       ├── uploadImage.js        # Image upload & processing
 │       ├── content.js            # Content retrieval
-│       ├── video.js              # Video streaming
+│       ├── video.js              # Video streaming (HLS)
 │       ├── image.js              # Image serving
 │       ├── comments.js           # Comment system
 │       ├── interactions.js       # Likes/subscriptions
@@ -152,13 +170,19 @@ lumeroo/
 │       ├── discoverImages.js     # Image discovery
 │       ├── reports.js            # Content reporting
 │       ├── deleteContent.js      # Content deletion
-│       └── deleteUser.js         # User deletion
+│       ├── deleteUser.js         # User deletion
+│       ├── youtubeDown.js        # YouTube content download
+│       └── youtubeUpload.js      # YouTube content processing
 ├── config.json                   # Frontend configuration
+├── LICENSE                       # MIT License
 ├── package.json                  # Frontend dependencies
 ├── tsconfig.json                 # TypeScript configuration
 ├── tailwind.config.ts            # Tailwind CSS configuration
 ├── next.config.ts                # Next.js configuration
 ├── eslint.config.mjs             # ESLint configuration
+├── postcss.config.mjs            # PostCSS configuration
+├── next-env.d.ts                 # Next.js type definitions
+├── .gitignore                    # Git ignore rules
 └── README.md                     # Project documentation
 ```
 

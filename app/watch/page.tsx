@@ -2042,14 +2042,16 @@ const WatchPageContent = () => {
             </div>
 
             <div className="mb-8 flex gap-3 px-1 lg:px-0">
-              <div className="relative w-10 h-10 rounded-full flex-shrink-0 overflow-hidden bg-[#2a2a2a] ring-1 ring-[#3a3a3a]">
-                <Image
-                  src={user ? (user.avatar ? (config.stream + user.avatar) : userAvatarUrl || "/logo.webp") : "/logo.webp"}
-                  alt={user?.username || "User"}
-                  fill
-                  className="object-cover"
-                />
-              </div>
+              {user && (
+                <div className="relative w-10 h-10 rounded-full flex-shrink-0 overflow-hidden bg-[#2a2a2a] ring-1 ring-[#3a3a3a]">
+                  <Image
+                    src={user ? (user.avatar ? (config.stream + user.avatar) : userAvatarUrl || "/logo.webp") : "/logo.webp"}
+                    alt={user?.username || "User"}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              )}
               <div className="flex-grow">
                 <div className="relative">
                   <textarea
