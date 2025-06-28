@@ -1802,7 +1802,7 @@ const WatchPageContent = () => {
                 onClick={handleUploaderClick}
               >
                 <Image
-                  src={video.uploader?.avatar ? (config.stream + video.uploader.avatar) : (uploaderAvatarUrl || "/logo.webp")}
+                  src={video.uploader?.avatar ? (video.uploader.avatar.startsWith('/') ? config.stream + video.uploader.avatar : video.uploader.avatar) : (uploaderAvatarUrl || "/logo.webp")}
                   alt={video.uploader?.username || "User"}
                   width={40}
                   height={40}
@@ -1894,7 +1894,7 @@ const WatchPageContent = () => {
               onClick={handleUploaderClick}
             >
               <Image
-                src={video.uploader?.avatar ? (config.stream + video.uploader.avatar) : (uploaderAvatarUrl || "/logo.webp")}
+                src={video.uploader?.avatar ? (video.uploader.avatar.startsWith('/') ? config.stream + video.uploader.avatar : video.uploader.avatar) : (uploaderAvatarUrl || "/logo.webp")}
                 alt={video.uploader?.username || "User"}
                 width={40}
                 height={40}
@@ -2045,7 +2045,7 @@ const WatchPageContent = () => {
               {user && (
                 <div className="relative w-10 h-10 rounded-full flex-shrink-0 overflow-hidden bg-[#2a2a2a] ring-1 ring-[#3a3a3a]">
                   <Image
-                    src={user ? (user.avatar ? (config.stream + user.avatar) : userAvatarUrl || "/logo.webp") : "/logo.webp"}
+                    src={user ? (user.avatar ? (user.avatar.startsWith('/') ? config.stream + user.avatar : user.avatar) : userAvatarUrl || "/logo.webp") : "/logo.webp"}
                     alt={user?.username || "User"}
                     fill
                     className="object-cover"
@@ -2079,7 +2079,7 @@ const WatchPageContent = () => {
                     }}
                     placeholder={user ? "Add a comment..." : "Sign in to comment"}
                     disabled={!user}
-                    className="w-full bg-transparent border-b-2 border-[#3a3a3a] text-[#e0e0e0] py-3 px-1 focus:outline-none focus:border-[#d6d203] resize-none transition-all duration-200 placeholder-[#888] disabled:opacity-50 min-h-[48px] hover:border-[#4a4a4a]"
+                    className="w-full bg-transparent border-b-2 border-[#3a3a3a] text-[#e0e0e0] py-3 px-1 focus:outline-none focus:border-[#d6d203] focus:ring-1 focus:ring-[#d6d203]/30 resize-none transition-all duration-200 placeholder-[#888] disabled:opacity-50 min-h-[48px] hover:border-[#4a4a4a]"
                     rows={1}
                     onInput={(e) => {
                       const target = e.target as HTMLTextAreaElement;
@@ -2153,7 +2153,7 @@ const WatchPageContent = () => {
                         onClick={() => handleCommentUserClick(comment.username)}
                       >
                         <Image
-                          src={comment.avatar ? (config.stream + comment.avatar) : `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="${encodeURIComponent(comment.avatarColor || '#000000')}"/><text x="50" y="50" text-anchor="middle" dy="0.35em" font-family="Arial" font-size="40" fill="white">${comment.username?.[0]?.toUpperCase() || '?'}</text></svg>`}
+                          src={comment.avatar ? (comment.avatar.startsWith('/') ? config.stream + comment.avatar : comment.avatar) : `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="${encodeURIComponent(comment.avatarColor || '#000000')}"/><text x="50" y="50" text-anchor="middle" dy="0.35em" font-family="Arial" font-size="40" fill="white">${comment.username?.[0]?.toUpperCase() || '?'}</text></svg>`}
                           alt={comment.username}
                           width={32}
                           height={32}
@@ -2239,7 +2239,7 @@ const WatchPageContent = () => {
                           <div className="mt-3 flex gap-2 bg-[#0a0a0a]/40 rounded-lg p-2.5 border border-[#2a2a2a]/40 animate-in slide-in-from-top-2 duration-200">
                             <div className="w-6 h-6 rounded-full flex-shrink-0 overflow-hidden bg-[#2a2a2a] ring-1 ring-[#3a3a3a]">
                               <Image
-                                src={user ? (config.stream + user.avatar || userAvatarUrl || "/logo.webp") : "/logo.webp"}
+                                src={user ? (user.avatar ? (user.avatar.startsWith('/') ? config.stream + user.avatar : user.avatar) : userAvatarUrl || "/logo.webp") : "/logo.webp"}
                                 alt={user?.username || "User"}
                                 width={24}
                                 height={24}
@@ -2297,7 +2297,7 @@ const WatchPageContent = () => {
                                   onClick={() => handleCommentUserClick(reply.username)}
                                 >
                                   <Image
-                                    src={reply.avatar ? (config.stream + reply.avatar) : `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="${encodeURIComponent(reply.avatarColor || '#000000')}"/><text x="50" y="50" text-anchor="middle" dy="0.35em" font-family="Arial" font-size="40" fill="white">${reply.username?.[0]?.toUpperCase() || '?'}</text></svg>`}
+                                    src={reply.avatar ? (reply.avatar.startsWith('/') ? config.stream + reply.avatar : reply.avatar) : `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="${encodeURIComponent(reply.avatarColor || '#000000')}"/><text x="50" y="50" text-anchor="middle" dy="0.35em" font-family="Arial" font-size="40" fill="white">${reply.username?.[0]?.toUpperCase() || '?'}</text></svg>`}
                                     alt={reply.username}
                                     width={24}
                                     height={24}

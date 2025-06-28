@@ -4,14 +4,14 @@
 
 **A modern video and image sharing platform built with Next.js**
 
-![Lumeroo Screenshot](public/screenshot.png)
+![Lumeroo Screenshot](https://u.cubeupload.com/hiwodaj190/fSBWPu0fFw.png)
 
 [![Next.js](https://img.shields.io/badge/Next.js-15.3.1-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19.0.0-61DAFB?style=for-the-badge&logo=react)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript)](https://typescriptlang.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Database-47A248?style=for-the-badge&logo=mongodb)](https://mongodb.com/)
 
-[Live Demo](https://lumeroo.siddz.com) • [Report Issues](https://github.com/yourusername/lumeroo/issues)
+[Live Demo](https://lumeroo.live) • [Report Issues](https://github.com/SiddDevZ/lumeroo/issues)
 
 </div>
 
@@ -39,7 +39,7 @@
 
 1. **Clone and install dependencies**
    ```bash
-   git clone https://github.com/yourusername/lumeroo.git
+   git clone https://github.com/Lumeroo/lumeroo.git
    cd lumeroo
    npm install
    cd Backend && npm install && cd ..
@@ -49,7 +49,7 @@
    
    **Frontend (.env.local)**
    ```env
-   NEXT_PUBLIC_API_URL=http://localhost:3001
+   NEXT_PUBLIC_API_URL=http://localhost:3002
    ```
 
    **Backend (.env)**
@@ -70,19 +70,6 @@
    ```
 
 4. **Open [http://localhost:3000](http://localhost:3000)**
-
----
-
-## 🏗️ Architecture
-
-### Video Streaming
-Lumeroo includes a **custom self-hosted video streaming solution** built into the backend with HLS (HTTP Live Streaming) support. You can easily replace this with your preferred video hosting service (Cloudflare Stream, AWS S3, etc.) by modifying the upload and streaming endpoints.
-
-### Tech Stack
-- **Frontend**: Next.js 15, TypeScript, Tailwind CSS
-- **Backend**: Node.js, Hono framework, MongoDB
-- **Authentication**: JWT with email verification
-- **Video Streaming**: Custom HLS implementation with FFmpeg processing
 
 ### Project Structure
 
@@ -169,8 +156,8 @@ lumeroo/
 │       ├── discover.js           # Content discovery
 │       ├── discoverImages.js     # Image discovery
 │       ├── reports.js            # Content reporting
-│       ├── deleteContent.js      # Content deletion
-│       ├── deleteUser.js         # User deletion
+│       ├── content.js            # Content deletion
+│       ├── user.js               # User deletion
 │       ├── youtubeDown.js        # YouTube content download
 │       └── youtubeUpload.js      # YouTube content processing
 ├── config.json                   # Frontend configuration
@@ -185,6 +172,19 @@ lumeroo/
 ├── .gitignore                    # Git ignore rules
 └── README.md                     # Project documentation
 ```
+
+---
+
+## 🏗️ Architecture
+
+### Video Streaming
+Lumeroo includes a **custom self-hosted video streaming solution** built into the backend with HLS (HTTP Live Streaming) support. You can easily replace this with your preferred video hosting service (Cloudflare Stream, AWS S3, etc.) by modifying the upload and streaming endpoints.
+
+### Tech Stack
+- **Frontend**: Next.js 15, TypeScript, Tailwind CSS
+- **Backend**: Node.js, Hono framework, MongoDB
+- **Authentication**: JWT with email verification
+- **Video Streaming**: Custom HLS implementation with FFmpeg processing
 
 ---
 
@@ -278,6 +278,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 **Built with ❤️ for the community**
 
-[⭐ Star this project](https://github.com/yourusername/lumeroo)
+[⭐ Star this project](https://github.com/SiddDevZ/lumeroo)
 
 </div>

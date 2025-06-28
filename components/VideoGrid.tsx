@@ -86,7 +86,7 @@ const VideoCard: React.FC<VideoCardProps> = ({ video }) => {
           <div className="w-9 h-9 rounded-full overflow-hidden bg-[#1f1f1f] hover:opacity-80 transition-opacity">
             {(uploaderObj.avatar || avatarUrl) ? (
               <Image
-                src={uploaderObj.avatar ? (config.stream + uploaderObj.avatar) : (avatarUrl || '')}
+                src={uploaderObj.avatar ? (uploaderObj.avatar.startsWith('/') ? config.stream + uploaderObj.avatar : uploaderObj.avatar) : (avatarUrl || '')}
                 alt={uploaderObj.username || "User"}
                 width={32}
                 height={32}

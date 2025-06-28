@@ -22,12 +22,11 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <title>Lumeroo</title>
-        <meta name="description" content="Adult content platform" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <GoogleOAuthProvider clientId="93231412308-nddbtq85qlh653qd40s4fsjnbtjf96si.apps.googleusercontent.com">
+        <GoogleOAuthProvider clientId="116238245424-6oeupvuj2to5k5fsm9lcak1b2mnrq7qp.apps.googleusercontent.com">
           {children}
         </GoogleOAuthProvider>
       </body>

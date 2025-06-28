@@ -494,7 +494,7 @@ const ProfileContent = () => {
                   <div className="w-26 h-26 md:w-24 md:h-24 rounded-full overflow-hidden border-4 border-[#1f1f1f] bg-[#1f1f1f] relative">
                     {(profileData.avatar || avatarUrl) ? (
                       <Image
-                        src={profileData.avatar ? (config.stream + profileData.avatar) : avatarUrl}
+                        src={profileData.avatar ? (profileData.avatar.startsWith('/') ? config.stream + profileData.avatar : profileData.avatar) : avatarUrl}
                         alt="Profile Picture"
                         fill
                         className="object-cover transition-transform duration-200 ease-in-out"

@@ -183,7 +183,7 @@ const SearchContent = () => {
             <div className="w-9 h-9 rounded-full overflow-hidden bg-[#1f1f1f] hover:opacity-80 transition-opacity">
               {result.uploader.avatar ? (
                 <Image
-                  src={config.stream + result.uploader.avatar}
+                  src={result.uploader.avatar.startsWith('/') ? config.stream + result.uploader.avatar : result.uploader.avatar}
                   alt={result.uploader.username}
                   width={36}
                   height={36}

@@ -27,7 +27,7 @@ const SubscriptionCard = ({ subscription }) => {
       <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#272727] mb-3">
         {(subscription.avatar || avatarUrl) ? (
           <Image
-            src={subscription.avatar ? (config.stream + subscription.avatar) : (avatarUrl || '')} 
+            src={subscription.avatar ? (subscription.avatar.startsWith('/') ? config.stream + subscription.avatar : subscription.avatar) : (avatarUrl || '')} 
             alt={subscription.username}
             width={48}
             height={48}

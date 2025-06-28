@@ -1312,8 +1312,8 @@ const AuthModel = ({ setShowAuthModel, setUser }) => {
               </h1>
               <h4 className="font-inter text-sm font-medium mt-4 mb-6 tracking-wide leading-5 text-[#cccccc] text-center max-w-[21rem] mx-auto">
                 {isLogin
-                  ? "You're just One step away from unlocking the best adult content. Log in now!"
-                  : "You're just One step away from unlocking the best adult content. Sign up now!"}
+                  ? "You're just One step away from unlocking the best content known to mankind. Log in now!"
+                  : "You're just One step away from unlocking the best content known to mankind. Sign up now!"}
               </h4>
 
               <div className="flex flex-col gap-4 justify-center w-full">
