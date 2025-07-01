@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Image from "next/image";
 import { FiSearch, FiMenu, FiX } from "react-icons/fi";
 import { FaUserAlt, FaRegUser, FaRandom, FaHeart,  FaUser, FaClock, FaTrophy, FaCompass } from "react-icons/fa";
@@ -32,6 +32,53 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
   const [showUploadModal, setShowUploadModal] = useState(false);
   const { avatarUrl } = useUserAvatar(user) as { avatarUrl: string; isLoading: boolean };
   const [isAuthChecking, setIsAuthChecking] = useState(true);
+  
+  // Scroll detection states
+  const [isVisible, setIsVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+  const [showStickyNav, setShowStickyNav] = useState(false);
+  const [stickyNavOpacity, setStickyNavOpacity] = useState(0);
+
+  const handleScroll = useCallback(() => {
+    const currentScrollY = window.scrollY;
+
+    if (currentScrollY > 150) {
+      if (!showStickyNav) {
+        setShowStickyNav(true);
+        setIsVisible(false);
+        setStickyNavOpacity(1); 
+      }
+
+      if (currentScrollY > lastScrollY && currentScrollY > 200) {
+        setIsVisible(false);
+      } else if (currentScrollY < lastScrollY) {
+        setIsVisible(true);
+        setStickyNavOpacity(1);
+      }
+    } else {
+      if (showStickyNav) {
+        const fadeThreshold = 150;
+        const fadeOpacity = Math.max(0, currentScrollY / fadeThreshold);
+        setStickyNavOpacity(fadeOpacity);
+
+        if (currentScrollY <= 50) {
+          setShowStickyNav(false);
+          setIsVisible(true);
+          setStickyNavOpacity(0);
+        }
+      }
+    }
+    
+    setLastScrollY(currentScrollY);
+  }, [lastScrollY, showStickyNav]);
+
+  useEffect(() => {
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [handleScroll]);
 
   useEffect(() => {
     const checkAuthentication = async () => {
@@ -108,7 +155,7 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
     };
   }, [isSidebarOpen]);
 
-  const handleProfileNavigation = () => {
+  const handleProfileNavigation = useCallback(() => {
     if (isAuthChecking) return;
     
     if (user) {
@@ -116,9 +163,9 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
     } else{
       setShowAuthModal(true);
     }
-  };
+  }, [isAuthChecking, user, router]);
 
-  const handleUploadNavigation = () => {
+  const handleUploadNavigation = useCallback(() => {
     if (isAuthChecking) return;
     
     if (user) {
@@ -126,30 +173,30 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
     } else {
       setShowAuthModal(true);
     }
-  };
+  }, [isAuthChecking, user]);
 
-  const handleSearchSubmit = () => {
+  const handleSearchSubmit = useCallback(() => {
     if (searchValue.trim()) {
       router.push(`/search?q=${encodeURIComponent(searchValue.trim())}`);
       setSearchValue("");
     }
-  };
+  }, [searchValue, router]);
 
-  const handleSearchKeyPress = (e: React.KeyboardEvent) => {
+  const handleSearchKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSearchSubmit();
     }
-  };
+  }, [handleSearchSubmit]);
 
-  const focusSearchInput = (isMobileView: boolean) => {
+  const focusSearchInput = useCallback((isMobileView: boolean) => {
     if (isMobileView) {
       mobileSearchInputRef.current?.focus();
     } else {
       desktopSearchInputRef.current?.focus();
     }
-  };
+  }, []);
 
-  const handleCategoryNavigation = (categoryId: string) => {
+  const handleCategoryNavigation = useCallback((categoryId: string) => {
     if (categoryId === "discover") {
       router.push("/");
     } else {
@@ -163,108 +210,24 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
         setLocalActiveCategory(categoryId);
       }
     }
-  };
+  }, [router, setActiveCategory]);
 
-  const categories = [
+  const categories = useMemo(() => [
     { id: "discover", name: "Discover", icon: <FaCompass /> },
     { id: "images", name: "Images", icon: <FaRegImage /> },
     { id: "top", name: "Top Videos", icon: <FaTrophy /> },
-    // { id: "popular", name: "Popular Now", icon: <FaFire /> },
     { id: "recent", name: "Recently Added", icon: <FaClock /> },
     { id: "liked", name: "Most Liked", icon: <FaHeart /> },
     { id: "random", name: "Random", icon: <FaRandom /> },
     { id: "subscriptions", name: "Subscriptions", icon: <FaUser /> },
-  ];
+  ], []);
 
   const currentActiveCategory = activeCategory || localActiveCategory;
 
-  return (
+  const NavbarContent = React.memo(({ isSticky = false }: { isSticky?: boolean }) => (
     <div className="max-w-[79rem] px-4 lg:px-2 mx-auto">
-
-      {showAuthModal && <AuthModel setShowAuthModel={setShowAuthModal} setUser={setUser} />}
-      {showUploadModal && <UploadModal setShowUploadModal={setShowUploadModal} user={user} />}
-      
-      {isMobile && (
-        <>
-          <div 
-            className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity duration-300 ease-in-out ${
-              isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-            }`}
-            onClick={() => setIsSidebarOpen(false)}
-          ></div>
-          
-          <div 
-            ref={sidebarRef}
-            className={`fixed top-0 left-0 h-full w-[80%] max-w-[300px] bg-[#121212] z-50 shadow-xl transform transition-transform duration-300 ease-in-out ${
-              isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-            }`}
-          >
-            <div className="p-5 flex flex-col h-full">
-
-              <div className="flex items-center justify-between mb-8">
-                <Link href="/" className="flex items-center" onClick={() => setIsSidebarOpen(false)}>
-                  <i className="ri-play-circle-line text-2xl text-[#d6d203] mr-3"></i>
-                  <h1 className="font-inter text-xl font-semibold text-white">
-                    Lumeroo
-                  </h1>
-                </Link>
-                <button 
-                  onClick={() => setIsSidebarOpen(false)}
-                  className="p-1 rounded-full hover:bg-[#2a2a2a] transition-colors duration-200"
-                >
-                  <FiX size={22} className="text-[#c2c2c2] hover:text-white" />
-                </button>
-              </div>
-
-              <div className="mt-2">
-                <h3 className="text-[#9e9e9e] text-xs font-medium uppercase tracking-wider mb-3 pl-2">Categories</h3>
-                <div className="flex flex-col space-y-1">
-                  {categories.map((category) => (
-                    <button
-                      key={category.id}
-                      onClick={() => {
-                        handleCategoryNavigation(category.id);
-                        setIsSidebarOpen(false);
-                      }}
-                      className={`
-                        flex items-center p-3 rounded-lg transition-all duration-300 ease-out transform hover:scale-[1.02]
-                        ${currentActiveCategory === category.id 
-                          ? 'bg-[#d6d203]/15 text-[#d6d203] shadow-lg hover:text-[#d6d203]' 
-                          : 'text-[#c2c2c2] hover:bg-[#ffffff10] hover:text-white'}
-                      `}
-                    >
-                      <span className="text-xl mr-4">{category.icon}</span>
-                      <span className="font-medium">{category.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-6 pt-6 border-t border-[#2a2a2a]">
-                <h3 className="text-[#9e9e9e] text-xs font-medium uppercase tracking-wider mb-3 pl-2">Account</h3>
-                <div className="flex flex-col space-y-1">
-                  <button 
-                    onClick={handleProfileNavigation}
-                    className="flex items-center p-3 rounded-lg text-[#c2c2c2] hover:bg-[#ffffff10] hover:text-white transition-all duration-200"
-                  >
-                    <FaUserAlt className="text-lg mr-4" />
-                    <span className="font-medium">Profile</span>
-                  </button>
-                  <button 
-                    onClick={handleUploadNavigation}
-                    className="flex items-center p-3 rounded-lg text-[#c2c2c2] hover:bg-[#ffffff10] hover:text-white transition-all duration-200"
-                  >
-                    <RiVideoUploadFill className="text-lg mr-4" />
-                    <span className="font-medium">Upload Video</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
       {isMobile ? (
+        // Mobile Layout
         <div className="flex flex-col md:hidden">
           <div className="relative h-[4rem] flex justify-between items-center">
             <div className="flex items-center space-x-4">
@@ -281,8 +244,8 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
             </div>
 
             <Link href="/" className="absolute left-1/2 transform -translate-x-1/2 flex items-center cursor-pointer">
-              <i className="ri-play-circle-line text-2xl text-[#d6d203]"></i>
-              <h1 className="font-inter text-xl font-semibold text-white ml-[0.42rem]">
+              <i className="ri-play-circle-line text-2xl text-[#d6d203] mr-2"></i>
+              <h1 className="font-inter text-xl font-semibold text-white">
                 Lumeroo
               </h1>
             </Link>
@@ -290,7 +253,7 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
             <div className="flex items-center space-x-5">
               <RiVideoUploadLine 
                 size={22} 
-                className="text-[#d6d203] cursor-pointer"
+                className="text-[#c2c2c2] cursor-pointer"
                 onClick={handleUploadNavigation}
               />
               {user && (user.avatar || avatarUrl) ? (
@@ -301,6 +264,7 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
                     width={25}
                     height={25}
                     className="rounded-full object-cover"
+                    priority
                   />
                 </div>
               ) : (
@@ -315,7 +279,7 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
 
           <div className="w-full mb-4">
             <div 
-              className="flex items-center w-full border border-[#1f1f1f] bg-[#101010] rounded-lg py-2 px-3 text-sm focus-within:shadow-[0_0_15px_rgba(74,155,2,0.1)] cursor-text"
+              className="flex items-center w-full border border-[#1f1f1f] bg-[#101010] rounded-lg py-2 px-3 text-sm focus-within:shadow-[0_0_15px_rgba(214,210,3,0.1)] cursor-text"
               onClick={() => focusSearchInput(true)}
             >
               <FiSearch className="text-[#939393] text-lg min-w-[20px]" />
@@ -347,9 +311,9 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
         // Desktop Layout
         <div className="hidden md:flex flex-col">
           <div className="relative mt-[1.6rem] mb-[0.95rem] flex justify-between items-center">
-            <Link href={"/"} className="flex items-center text-[#d6d203] cursor-pointer hover:opacity-90 transition-all ease-out space-x-1.5">
-              <i className="ri-play-circle-line  text-2xl text-[#d6d203]"></i>
-              <h1 className="font-roboto text-2xl text-[#e7e7e7] font-semibold hidden sm:block">
+            <Link href={"/"} className="flex items-center cursor-pointer hover:opacity-90 transition-all ease-out space-x-2">
+              <i className="ri-play-circle-line text-2xl text-[#d6d203]"></i>
+              <h1 className="font-inter text-2xl font-semibold text-white hidden sm:block">
                 Lumeroo
               </h1>
             </Link>
@@ -389,7 +353,7 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
                 onClick={handleUploadNavigation}
                 className="flex items-center cursor-pointer justify-center bg-[#d6d203c9] hover:scale-[1.03] text-[#202020] transition-all duration-200 ease-out group rounded-full p-2 sm:py-2 sm:px-4"
               >
-                <RiVideoUploadFill size={20} className="" />
+                <RiVideoUploadFill size={20} />
                 <span className="font-pop font-semibold hidden sm:ml-2 md:inline">
                   Upload
                 </span>
@@ -407,6 +371,7 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
                       width={41}
                       height={41}
                       className="rounded-full object-cover"
+                      priority
                     />
                   ) : (
                     <FaUserAlt
@@ -419,7 +384,7 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
             </div>
           </div>
 
-          {!isMobile && showCategories && (
+          {!isMobile && showCategories && !isSticky && (
             <div className="categories-nav py-2 mb-2 overflow-x-auto scrollbar-hide hidden md:block [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               <div className="flex items-center justify-between w-full gap-1">
                 {categories.map((category) => {
@@ -463,6 +428,122 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
         </div>
       )}
     </div>
+  ));
+
+  NavbarContent.displayName = 'NavbarContent';
+
+  return (
+    <>
+      {showAuthModal && <AuthModel setShowAuthModel={setShowAuthModal} setUser={setUser} />}
+      {showUploadModal && <UploadModal setShowUploadModal={setShowUploadModal} user={user} />}
+
+      {isMobile && (
+        <>
+          <div 
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100]"
+            onClick={() => setIsSidebarOpen(false)}
+            style={{
+              opacity: isSidebarOpen ? 0.7 : 0,
+              visibility: isSidebarOpen ? 'visible' : 'hidden',
+              transition: 'opacity 300ms ease-in-out, visibility 300ms ease-in-out',
+              height: '100vh',
+            }}
+            aria-hidden="true"
+          />
+
+          <div 
+            ref={sidebarRef}
+            className={`fixed top-0 left-0 w-[80%] transition-transform duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} max-w-[300px] bg-[#0f0f0f] border-r border-[#2a2a2a] z-[9999] shadow-2xl h-[100vh]`}
+          >
+            <div className="p-5 flex flex-col h-full overflow-y-auto">
+              <div className="flex items-center justify-between mb-8 flex-shrink-0">
+                <Link href="/" className="flex items-center" onClick={() => setIsSidebarOpen(false)}>
+                  <i className="ri-play-circle-line text-2xl text-[#d6d203] mr-3"></i>
+                  <h1 className="font-inter text-xl font-semibold text-white">
+                    Lumeroo
+                  </h1>
+                </Link>
+                <button 
+                  onClick={() => setIsSidebarOpen(false)}
+                  className="p-2 rounded-full hover:bg-[#2a2a2a] transition-colors duration-200 flex-shrink-0"
+                >
+                  <FiX size={20} className="text-[#c2c2c2] hover:text-white" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto">
+                <div className="mt-2">
+                  <h3 className="text-[#9e9e9e] text-xs font-medium uppercase tracking-wider mb-3 pl-2">Categories</h3>
+                  <div className="flex flex-col space-y-1">
+                    {categories.map((category) => (
+                      <button
+                        key={category.id}
+                        onClick={() => {
+                          handleCategoryNavigation(category.id);
+                          setIsSidebarOpen(false);
+                        }}
+                        className={`
+                          flex items-center p-3 rounded-lg transition-all duration-300 ease-out
+                          ${currentActiveCategory === category.id 
+                            ? 'bg-[#d6d203]/15 text-[#d6d203] shadow-lg' 
+                            : 'text-[#c2c2c2] hover:bg-[#ffffff10] hover:text-white'}
+                        `}
+                      >
+                        <span className="text-xl mr-4">{category.icon}</span>
+                        <span className="font-medium">{category.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-6 border-t border-[#2a2a2a]">
+                  <h3 className="text-[#9e9e9e] text-xs font-medium uppercase tracking-wider mb-3 pl-2">Account</h3>
+                  <div className="flex flex-col space-y-1">
+                    <button 
+                      onClick={() => {
+                        handleProfileNavigation();
+                        setIsSidebarOpen(false);
+                      }}
+                      className="flex items-center p-3 rounded-lg text-[#c2c2c2] hover:bg-[#ffffff10] hover:text-white transition-all duration-200"
+                    >
+                      <FaUserAlt className="text-lg mr-4" />
+                      <span className="font-medium">Profile</span>
+                    </button>
+                    <button 
+                      onClick={() => {
+                        handleUploadNavigation();
+                        setIsSidebarOpen(false);
+                      }}
+                      className="flex items-center p-3 rounded-lg text-[#c2c2c2] hover:bg-[#ffffff10] hover:text-white transition-all duration-200"
+                    >
+                      <RiVideoUploadFill className="text-lg mr-4" />
+                      <span className="font-medium">Upload Video</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      <nav className="relative z-20 bg-[#080808]/95 backdrop-blur-md border-b border-[#1a1a1a]/50">
+        <NavbarContent isSticky={false} />
+      </nav>
+
+      {showStickyNav && (
+        <nav 
+          className={`
+            fixed top-0 left-0 right-0 z-30 bg-[#080808]/95 backdrop-blur-md border-b border-[#1a1a1a]/50
+            transition-all duration-300 ease-in-out
+            ${isVisible ? 'translate-y-0' : '-translate-y-full'}
+          `}
+          style={{ opacity: stickyNavOpacity }}
+        >
+          <NavbarContent isSticky={true} />
+        </nav>
+      )}
+    </>
   );
 };
 

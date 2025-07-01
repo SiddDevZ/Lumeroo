@@ -85,7 +85,7 @@ function HomeContent() {
       const sortParam = sortMapping[category] || 'hot';
       const url = new URL(`${config.url}/api/discover`);
       
-      url.searchParams.append('limit', '20');
+      url.searchParams.append('limit', '40');
       url.searchParams.append('page', page.toString());
       url.searchParams.append('sort', sortParam);
 
