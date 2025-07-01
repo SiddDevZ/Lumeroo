@@ -22,7 +22,6 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
 }) => {
   const router = useRouter();
   const [isMobile, setIsMobile] = useState(false);
-  const [searchValue, setSearchValue] = useState("");
   const [localActiveCategory, setLocalActiveCategory] = useState("discover");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
@@ -175,18 +174,11 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
     }
   }, [isAuthChecking, user]);
 
-  const handleSearchSubmit = useCallback(() => {
-    if (searchValue.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchValue.trim())}`);
-      setSearchValue("");
+  const handleSearchSubmit = useCallback((searchTerm: string) => {
+    if (searchTerm.trim()) {
+      router.push(`/search?q=${encodeURIComponent(searchTerm.trim())}`);
     }
-  }, [searchValue, router]);
-
-  const handleSearchKeyPress = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearchSubmit();
-    }
-  }, [handleSearchSubmit]);
+  }, [router]);
 
   const focusSearchInput = useCallback((isMobileView: boolean) => {
     if (isMobileView) {
@@ -224,6 +216,67 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
 
   const currentActiveCategory = activeCategory || localActiveCategory;
 
+  const SearchInput = React.memo(({ 
+    isMobile, 
+    inputRef, 
+    onSubmit
+  }: {
+    isMobile: boolean;
+    inputRef: React.RefObject<HTMLInputElement | null>;
+    onSubmit: (searchTerm: string) => void;
+  }) => {
+    const [searchValue, setSearchValue] = useState("");
+    
+    const handleSearchKeyPress = (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        onSubmit(searchValue);
+        setSearchValue("");
+      }
+    };
+    
+    return (
+      <div className={`${isMobile ? 'w-full mb-4' : 'flex-1 max-w-xl mx-4 px-2'}`}>
+        <div 
+          className={`flex items-center w-full border border-[#1f1f1f] bg-[#101010] ${
+            isMobile 
+              ? 'rounded-lg py-2 px-3 text-sm focus-within:shadow-[0_0_15px_rgba(214,210,3,0.1)]' 
+              : 'rounded-full py-2 sm:py-3 px-3 sm:px-5 text-sm focus-within:shadow-[0_0_15px_rgba(214,210,3,0.055)]'
+          } transition-all ease-in-out duration-200 cursor-text`}
+          onClick={() => inputRef.current?.focus()}
+        >
+          <FiSearch className="text-[#939393] text-lg min-w-[20px]" />
+          <input
+            ref={inputRef}
+            type="text"
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            placeholder="Search Lumeroo..."
+            className={`flex-1 text-[1rem] bg-transparent ${
+              isMobile ? 'ml-2' : 'ml-2 sm:ml-3'
+            } text-[#c0c0c0] placeholder-[#808080] focus:outline-none truncate [&::-webkit-search-cancel-button]:appearance-none`}
+            onKeyDown={handleSearchKeyPress}
+          />
+          {searchValue && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation(); 
+                setSearchValue("");
+                inputRef.current?.focus();
+              }}
+              className="focus:outline-none"
+            >
+              <FiX className={`text-[#d6d203a5] hover:text-[#d6d203] text-lg cursor-pointer ${
+                !isMobile ? 'ml-2' : ''
+              }`} />
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  });
+
+  SearchInput.displayName = 'SearchInput';
+
   const NavbarContent = React.memo(({ isSticky = false }: { isSticky?: boolean }) => (
     <div className="max-w-[79rem] px-4 lg:px-2 mx-auto">
       {isMobile ? (
@@ -239,7 +292,7 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
               <IoSearchSharp 
                 size={24} 
                 className="text-[#c2c2c2] font-bold cursor-pointer hover:text-white transition-colors duration-200" 
-                onClick={() => focusSearchInput(true)}
+                onClick={() => mobileSearchInputRef.current?.focus()}
               />
             </div>
 
@@ -277,35 +330,11 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
             </div>
           </div>
 
-          <div className="w-full mb-4">
-            <div 
-              className="flex items-center w-full border border-[#1f1f1f] bg-[#101010] rounded-lg py-2 px-3 text-sm focus-within:shadow-[0_0_15px_rgba(214,210,3,0.1)] cursor-text"
-              onClick={() => focusSearchInput(true)}
-            >
-              <FiSearch className="text-[#939393] text-lg min-w-[20px]" />
-              <input
-                ref={mobileSearchInputRef}
-                type="text"
-                value={searchValue}
-                onChange={(e) => setSearchValue(e.target.value)}
-                placeholder="Search Lumeroo..."
-                className="flex-1 text-[1rem] bg-transparent ml-2 text-[#c0c0c0] placeholder-[#808080] focus:outline-none truncate [&::-webkit-search-cancel-button]:appearance-none"
-                onKeyDown={handleSearchKeyPress}
-              />
-              {searchValue && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation(); 
-                    setSearchValue("");
-                    focusSearchInput(true);
-                  }}
-                  className="focus:outline-none"
-                >
-                  <FiX className="text-[#d6d203a5] hover:text-[#d6d203] text-lg cursor-pointer" />
-                </button>
-              )}
-            </div>
-          </div>
+          <SearchInput 
+            isMobile={true}
+            inputRef={mobileSearchInputRef}
+            onSubmit={handleSearchSubmit}
+          />
         </div>
       ) : (
         // Desktop Layout
@@ -318,35 +347,11 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
               </h1>
             </Link>
 
-            <div className="flex-1 max-w-xl mx-4 px-2">
-              <div 
-                className="flex items-center w-full border border-[#1f1f1f] bg-[#101010] rounded-full py-2 sm:py-3 px-3 sm:px-5 text-sm focus-within:shadow-[0_0_15px_rgba(214,210,3,0.055)] transition-all ease-in-out duration-200 cursor-text"
-                onClick={() => focusSearchInput(false)}
-              >
-                <FiSearch className="text-[#939393] text-lg min-w-[20px]" />
-                <input
-                  ref={desktopSearchInputRef}
-                  type="text"
-                  value={searchValue}
-                  onChange={(e) => setSearchValue(e.target.value)}
-                  placeholder="Search Lumeroo..."
-                  className="flex-1 text-[1rem] bg-transparent ml-2 sm:ml-3 text-[#c0c0c0] placeholder-[#808080] focus:outline-none truncate [&::-webkit-search-cancel-button]:appearance-none"
-                  onKeyDown={handleSearchKeyPress}
-                />
-                {searchValue && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSearchValue("");
-                      focusSearchInput(false);
-                    }}
-                    className="focus:outline-none"
-                  >
-                    <FiX className="text-[#d6d203a5] ml-2 hover:text-[#d6d203] text-lg cursor-pointer" />
-                  </button>
-                )}
-              </div>
-            </div>
+            <SearchInput 
+              isMobile={false}
+              inputRef={desktopSearchInputRef}
+              onSubmit={handleSearchSubmit}
+            />
 
             <div className="flex items-center space-x-3 sm:space-x-4">
               <button 
@@ -527,14 +532,14 @@ const NavBar = ({user, setUser, showCategories = true, activeCategory, setActive
         </>
       )}
 
-      <nav className="relative z-20 bg-[#080808]/95 backdrop-blur-md border-b border-[#1a1a1a]/50">
+      <nav className="relative z-20 bg-[#080808]/95 backdrop-blur-md">
         <NavbarContent isSticky={false} />
       </nav>
 
       {showStickyNav && (
         <nav 
           className={`
-            fixed top-0 left-0 right-0 z-30 bg-[#080808]/95 backdrop-blur-md border-b border-[#1a1a1a]/50
+            fixed top-0 left-0 right-0 z-30 bg-[#080808]/95 backdrop-blur-md
             transition-all duration-300 ease-in-out
             ${isVisible ? 'translate-y-0' : '-translate-y-full'}
           `}
